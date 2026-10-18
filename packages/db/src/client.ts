@@ -3,11 +3,17 @@ import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
 import { migrate as migratePg } from "drizzle-orm/node-postgres/migrator";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import * as schema from "./schema";
 
-export const MIGRATIONS_FOLDER = fileURLToPath(new URL("../drizzle", import.meta.url));
+/**
+ * Where the SQL migrations live. Override with SHORTLOOP_MIGRATIONS_DIR when this file is bundled
+ * (a `new URL("../drizzle", import.meta.url)` literal is treated as an asset by bundlers like Turbopack).
+ */
+export const MIGRATIONS_FOLDER =
+  process.env.SHORTLOOP_MIGRATIONS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), "..", "drizzle");
 
 export type Db =
   ReturnType<typeof drizzlePglite<typeof schema>> | ReturnType<typeof drizzlePg<typeof schema>>;

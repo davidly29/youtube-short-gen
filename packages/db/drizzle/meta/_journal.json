@@ -29,6 +29,20 @@
       "when": 1792348507128,
       "tag": "0003_audit_events",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792349116526,
+      "tag": "0004_web_app",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792349801710,
+      "tag": "0005_asset_title",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ export const toAsset = (r: Row<typeof assets>): Asset => ({
   source: r.source,
   licence: r.licence,
   storageKey: r.storageKey,
+  title: opt(r.title),
   durationMs: opt(r.durationMs),
   width: opt(r.width),
   height: opt(r.height),
