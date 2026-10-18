@@ -54,6 +54,7 @@ describe("migrations", () => {
       "publish_records",
       "scripts",
       "timelines",
+      "user_api_keys",
       "users",
     ]);
   });
@@ -61,7 +62,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(13);
+    expect(await tableNames()).toHaveLength(14);
   });
 });
 

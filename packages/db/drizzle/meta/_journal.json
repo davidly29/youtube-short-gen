@@ -43,6 +43,13 @@
       "when": 1792349801710,
       "tag": "0005_asset_title",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792358049998,
+      "tag": "0006_user_api_keys",
+      "breakpoints": true
     }
   ]
 }

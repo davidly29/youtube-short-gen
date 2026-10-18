@@ -7,3 +7,11 @@ export { Beat, Script } from "./script";
 export { AudioClip, CaptionStyleId, CaptionWord, Clip, Timeline } from "./timeline";
 export { Job, JobStatus, JobType } from "./job";
 export { Platform, Privacy, PublishRequest } from "./publish";
+export {
+  ApiKeyInfo,
+  ApiKeyProvider,
+  DEFAULT_MODELS,
+  PROVIDER_CAPABILITIES,
+  ProviderCapability,
+  SaveApiKey,
+} from "./keys";

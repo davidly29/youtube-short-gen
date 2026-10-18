@@ -297,3 +297,36 @@ export const auditEvents = pgTable(
   },
   (t) => [index("audit_events_owner_type").on(t.ownerId, t.type)],
 );
+
+export const apiKeyProvider = pgEnum("api_key_provider", [
+  "anthropic",
+  "openai",
+  "gemini",
+  "elevenlabs",
+  "fal",
+  "pexels",
+  "pixabay",
+]);
+
+/**
+ * A user's own provider key (BYOK). `secret` is AES-256-GCM ciphertext bound to (owner, provider);
+ * the plaintext key is never stored or returned to the browser.
+ */
+export const userApiKeys = pgTable(
+  "user_api_keys",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: apiKeyProvider("provider").notNull(),
+    secret: text("secret").notNull(),
+    last4: text("last4").notNull(),
+    model: text("model"),
+    imageModel: text("image_model"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true, mode: "string" }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("user_api_keys_owner_provider").on(t.ownerId, t.provider)],
+);
