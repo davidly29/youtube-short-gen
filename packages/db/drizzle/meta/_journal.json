@@ -15,6 +15,20 @@
       "when": 1792343558424,
       "tag": "0001_credit_ledger_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792348364866,
+      "tag": "0002_asset_source_render",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792348507128,
+      "tag": "0003_audit_events",
+      "breakpoints": true
     }
   ]
 }

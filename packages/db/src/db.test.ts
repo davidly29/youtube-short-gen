@@ -43,6 +43,7 @@ describe("migrations", () => {
   it("create every table on an empty database", async () => {
     expect(await tableNames()).toEqual([
       "assets",
+      "audit_events",
       "channels",
       "credit_ledger",
       "jobs",
@@ -57,7 +58,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(9);
+    expect(await tableNames()).toHaveLength(10);
   });
 });
 

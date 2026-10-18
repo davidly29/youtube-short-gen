@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Id, IsoDateTime, Ms } from "./common";
 
-export const LicenceType = z.enum(["owned", "stock", "ai_generated", "library"]);
+export const LicenceType = z.enum(["owned", "stock", "ai_generated", "library", "composed"]);
 
 export const Licence = z.object({
   type: LicenceType,
@@ -17,7 +17,15 @@ export const Licence = z.object({
 export type Licence = z.infer<typeof Licence>;
 
 export const AssetKind = z.enum(["video", "image", "audio"]);
-export const AssetSource = z.enum(["upload", "own_channel", "stock", "ai_generated", "library_music"]);
+/** `render` = a finished Short we produced; its inputs are listed in its rights manifest. */
+export const AssetSource = z.enum([
+  "upload",
+  "own_channel",
+  "stock",
+  "ai_generated",
+  "library_music",
+  "render",
+]);
 
 export const Asset = z.object({
   id: Id,
