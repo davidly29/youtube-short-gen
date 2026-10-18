@@ -1,0 +1,46 @@
+{
+  "note": "Shape follows the YouTube Data API v3 docs (token refresh, resumable videos.insert). Hand-written until an OAuth client exists to record a real session (H-02); re-record then.",
+  "entries": [
+    {
+      "request": { "method": "POST", "url": "https://oauth2.googleapis.com/token" },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "ya29.recorded-access",
+          "expires_in": 3599,
+          "scope": "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly",
+          "token_type": "Bearer"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+        "headers": { "authorization": "Bearer ya29.recorded-access", "x-upload-content-type": "video/mp4" }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "location": "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&upload_id=REC123"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&upload_id=REC123",
+        "headers": { "content-type": "video/mp4" }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "kind": "youtube#video",
+          "id": "dQw4recorded",
+          "snippet": { "title": "recorded" },
+          "status": { "uploadStatus": "uploaded", "privacyStatus": "public" }
+        }
+      }
+    }
+  ]
+}
