@@ -1,6 +1,13 @@
 import { defaultDatabaseUrl, openDb } from "@shortloop/db";
 import { BullQueueDriver, MemoryEventBus, MemoryQueueDriver, RedisEventBus } from "@shortloop/pipeline";
-import { storageFromEnv } from "@shortloop/providers";
+import {
+  imageFromEnv,
+  llmFromEnv,
+  stockFromEnv,
+  storageFromEnv,
+  ttsFromEnv,
+  type LLM,
+} from "@shortloop/providers";
 import { createWorker } from "./worker";
 
 const redisUrl = process.env.REDIS_URL;
@@ -9,7 +16,19 @@ await handle.migrate();
 
 const driver = redisUrl ? new BullQueueDriver(redisUrl, { render: 2 }) : new MemoryQueueDriver();
 const bus = redisUrl ? new RedisEventBus(redisUrl) : new MemoryEventBus();
-createWorker({ db: handle.db, driver, bus, storage: storageFromEnv() });
+let llm: LLM | undefined;
+try {
+  llm = llmFromEnv();
+} catch (e) {
+  console.warn(`script stage disabled: ${(e as Error).message}`);
+}
+createWorker({
+  db: handle.db,
+  driver,
+  bus,
+  storage: storageFromEnv(),
+  providers: { llm, tts: ttsFromEnv(), image: imageFromEnv(), stock: stockFromEnv() },
+});
 
 console.log(`worker started (${redisUrl ? "BullMQ" : "in-memory"} queues)`);
 

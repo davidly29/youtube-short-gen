@@ -2,3 +2,8 @@
 export const PACKAGE_NAME = "@shortloop/providers" as const;
 
 export * from "./storage";
+export * from "./llm";
+export * from "./tts";
+export * from "./image";
+export * from "./stock";
+export { measureLufs, normaliseLoudness, probeDurationMs, runFfmpeg } from "./media/ffmpeg";
