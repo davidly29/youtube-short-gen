@@ -6,4 +6,11 @@ export * from "./llm";
 export * from "./tts";
 export * from "./image";
 export * from "./stock";
-export { measureLufs, normaliseLoudness, probeDurationMs, runFfmpeg } from "./media/ffmpeg";
+export {
+  measureLufs,
+  normaliseLoudness,
+  probeDurationMs,
+  probeMedia,
+  runFfmpeg,
+  type MediaProbe,
+} from "./media/ffmpeg";

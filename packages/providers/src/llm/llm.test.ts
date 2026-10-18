@@ -31,3 +31,26 @@ describe("llmFromEnv", () => {
     expect(() => llmFromEnv({})).toThrow(/No LLM configured/);
   });
 });
+
+describe("FakeScriptLLM", () => {
+  it("writes a script of the requested length for any topic", async () => {
+    const { FakeScriptLLM } = await import("./fake");
+    const { z } = await import("zod");
+    for (const target of [78, 117, 156]) {
+      for (const topic of ["why cats purr", "Why octopuses have three hearts in the deep ocean"]) {
+        const out = await new FakeScriptLLM().json({
+          system: `Total spoken words (beats + cta) must be ${target} ±10%`,
+          prompt: `Topic: ${topic}`,
+          schema: z.object({
+            beats: z.array(z.object({ text: z.string() })),
+            cta: z.string(),
+            hook: z.string(),
+          }),
+        });
+        const words = [...out.beats.map((b) => b.text), out.cta].join(" ").split(/\s+/).length;
+        expect(Math.abs(words - target), `${target} / ${topic}`).toBeLessThanOrEqual(target * 0.1);
+        expect(out.beats[0]?.text.startsWith(out.hook.replace(/\.$/, ""))).toBe(true);
+      }
+    }
+  });
+});

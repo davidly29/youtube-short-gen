@@ -7,6 +7,8 @@ export interface Storage {
   exists(key: string): Promise<boolean>;
   /** A time-limited URL for reading the object (signed URLs only; no public buckets). */
   signedUrl(key: string, expiresInSeconds?: number): Promise<string>;
+  /** A time-limited URL the browser can PUT a file to directly. */
+  signedPutUrl(key: string, contentType: string, expiresInSeconds?: number): Promise<string>;
 }
 
 export function assertSafeKey(key: string): void {

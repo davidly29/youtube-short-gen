@@ -51,8 +51,11 @@ export interface EnqueueOptions {
  * Durable job state lives in Postgres (`jobs` table); the queue driver only carries job ids.
  * That makes enqueue idempotent (unique idempotency key) and keeps status readable without Redis.
  */
+export type FinalFailureListener = (job: Job, ownerId: string) => Promise<void> | void;
+
 export class JobService {
   private readonly handlers = new Map<JobType, JobHandler>();
+  private readonly failureListeners: FinalFailureListener[] = [];
 
   constructor(
     private readonly db: Db,
@@ -117,6 +120,11 @@ export class JobService {
     return this.bus.subscribe(listener);
   }
 
+  /** Called once when a job has failed its last attempt (after the refund). */
+  onFinalFailure(listener: FinalFailureListener): void {
+    this.failureListeners.push(listener);
+  }
+
   private async run(jobId: string, attempt: number): Promise<void> {
     const row = await this.db.query.jobs.findFirst({ where: eq(schema.jobs.id, jobId) });
     if (!row) throw new Error(`unknown job ${jobId}`);
@@ -136,6 +144,8 @@ export class JobService {
       if (attempt >= MAX_ATTEMPTS) {
         await this.setStatus(jobId, "failed", { error: message });
         await refundJob(this.db, jobId);
+        const failed = await this.get(jobId);
+        if (failed) for (const l of this.failureListeners) await l(failed, row.ownerId);
         return;
       }
       await this.setStatus(jobId, "queued", { error: message });
@@ -236,11 +246,13 @@ export class MemoryQueueDriver implements QueueDriver {
 
   /** Resolves when every queued job has finished (all attempts). */
   async drain(): Promise<void> {
-    while (this.pending.length > 0) {
+    // Jobs can enqueue more jobs while running, so wait until the chain stops growing.
+    for (;;) {
       this.kick();
-      await this.chain;
+      const current = this.chain;
+      await current;
+      if (current === this.chain && this.pending.length === 0) return;
     }
-    await this.chain;
   }
 
   async close(): Promise<void> {

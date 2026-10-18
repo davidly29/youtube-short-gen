@@ -79,20 +79,29 @@ export function relevance(query: string, description: string): number {
 }
 
 const ORIGIN_RANK: Record<CandidateOrigin, number> = { library: 0, stock: 1, ai: 2 };
+/** A library item that doesn't match the beat at all ranks after stock and AI (it's still a last resort). */
+const IRRELEVANT_LIBRARY_RANK = 3;
 const reusable = (a: Asset) => a.source === "upload" || a.source === "own_channel";
 
 /**
  * Pick one clip per beat: prefer the user's library, then stock, then AI images (in that order),
  * highest relevance within an origin; never reuse an asset in one Short unless it is the user's own.
+ * Library items only take precedence on beats they match (relevance > 0), and an unused library
+ * item beats one already on screen, so a handful of uploads spread across the Short.
  */
 export function chooseClips(spans: BeatSpan[], candidates: Record<string, VisualCandidate[]>): Clip[] {
   const used = new Set<string>();
   return spans.map((span) => {
+    const rank = (c: VisualCandidate) =>
+      c.origin === "library" && relevance(span.visualQuery, c.description) === 0
+        ? IRRELEVANT_LIBRARY_RANK
+        : ORIGIN_RANK[c.origin];
     const options = [...(candidates[span.beatId] ?? [])]
       .filter((c) => reusable(c.asset) || !used.has(c.asset.id))
       .sort(
         (a, b) =>
-          ORIGIN_RANK[a.origin] - ORIGIN_RANK[b.origin] ||
+          rank(a) - rank(b) ||
+          Number(used.has(a.asset.id)) - Number(used.has(b.asset.id)) ||
           relevance(span.visualQuery, b.description) - relevance(span.visualQuery, a.description),
       );
     const pick = options[0];

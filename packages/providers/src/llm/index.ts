@@ -1,14 +1,16 @@
 import { AnthropicLLM } from "./anthropic";
 import type { LLM } from "./llm";
 import { OpenAILLM } from "./openai";
+import { FakeScriptLLM } from "./fake";
 
 export { extractJson, JSON_ONLY, LLMOutputError, parseReply, type JsonRequest, type LLM } from "./llm";
 export { AnthropicLLM } from "./anthropic";
 export { OpenAILLM } from "./openai";
-export { FakeLLM } from "./fake";
+export { FakeLLM, FakeScriptLLM } from "./fake";
 
 /** LLM_PROVIDER=anthropic|openai (default: whichever key is set, Anthropic first). */
 export function llmFromEnv(env: NodeJS.ProcessEnv = process.env): LLM {
+  if (env.LLM_PROVIDER === "fake") return new FakeScriptLLM();
   const provider =
     env.LLM_PROVIDER ?? (env.ANTHROPIC_API_KEY ? "anthropic" : env.OPENAI_API_KEY ? "openai" : "");
   if (provider === "anthropic" && env.ANTHROPIC_API_KEY)

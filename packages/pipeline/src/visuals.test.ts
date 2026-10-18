@@ -108,6 +108,27 @@ describe("chooseClips", () => {
     ).toEqual(["own", "own", "own"]);
   });
 
+  it("uses an upload only on beats it matches, and spreads several uploads before repeating one", () => {
+    const reef = asset("reef", "upload");
+    const swim = asset("swim", "upload", "video");
+    const lib = [cand(reef, "library", "octopus reef.jpg"), cand(swim, "library", "octopus swimming.mp4")];
+    const clips = chooseClips(spans, {
+      b1: [...lib, cand(stockA, "stock", "octopus close up")],
+      b2: [...lib, cand(stockB, "stock", "octopus gills")],
+      b4: [...lib, cand(ai, "ai", "octopus swimming")],
+    });
+    // b1 ties (first upload wins), b2 prefers the unused upload, b4 matches "swimming" best.
+    expect(clips.map((c) => c.assetId)).toEqual(["reef", "swim", "swim"]);
+    const unrelated = cand(asset("cat", "upload"), "library", "my cat.jpg");
+    expect(
+      chooseClips(spans, {
+        b1: [unrelated, cand(stockA, "stock", "x")],
+        b2: [unrelated],
+        b4: [unrelated, cand(ai, "ai", "x")],
+      }).map((c) => c.assetId),
+    ).toEqual(["stockA", "cat", "ai1"]);
+  });
+
   it("ranks by relevance within an origin", () => {
     expect(relevance("octopus gills diagram", "octopus gills")).toBeGreaterThan(
       relevance("octopus gills diagram", "beach"),

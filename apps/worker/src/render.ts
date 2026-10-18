@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Asset, Timeline } from "@shortloop/contracts";
-import { schema, eq, inArray, toTimeline, type Db } from "@shortloop/db";
+import { schema, eq, inArray, toTimeline, type Db, toAsset as dbToAsset } from "@shortloop/db";
 import { assertPublishable, buildRightsManifest, settle, type JobHandler } from "@shortloop/pipeline";
 import type { Storage } from "@shortloop/providers";
 import {
@@ -20,16 +20,11 @@ export interface RenderInput {
   /** Render the built-in 3 s fixture (smoke test for the media stack). */
   fixture?: boolean;
   timelineId?: string;
+  /** Present when part of a production: settle the credit reserved on this job. */
+  chain?: { creditJobId: string };
 }
 
-const toContract = (r: typeof schema.assets.$inferSelect): Asset =>
-  Asset.parse({
-    ...r,
-    durationMs: r.durationMs ?? undefined,
-    width: r.width ?? undefined,
-    height: r.height ?? undefined,
-    createdAt: new Date(r.createdAt).toISOString(),
-  });
+const toContract = (r: typeof schema.assets.$inferSelect): Asset => Asset.parse(dbToAsset(r));
 
 /**
  * Timeline -> rights check -> captions -> MP4 + thumbnail (hook frame) + rights manifest JSON in storage,
@@ -111,7 +106,7 @@ export function renderHandler(storage: Storage, db?: Db): JobHandler {
         width: 1080,
         height: 1920,
       });
-      await settle(db, job.id, { short: 1 });
+      if (input.chain?.creditJobId) await settle(db, input.chain.creditJobId, { short: 1 });
       return { videoAssetId: id, storageKey, manifestKey, thumbnailKey, durationMs: timeline.durationMs };
     } finally {
       await rm(work, { recursive: true, force: true });

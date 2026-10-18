@@ -62,6 +62,15 @@ export class S3Storage implements Storage {
     }
   }
 
+  async signedPutUrl(key: string, contentType: string, expiresInSeconds = 3600): Promise<string> {
+    assertSafeKey(key);
+    return getSignedUrl(
+      this.client,
+      new PutObjectCommand({ Bucket: this.config.bucket, Key: key, ContentType: contentType }),
+      { expiresIn: expiresInSeconds },
+    );
+  }
+
   async signedUrl(key: string, expiresInSeconds = 3600): Promise<string> {
     assertSafeKey(key);
     return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.config.bucket, Key: key }), {
