@@ -10,6 +10,7 @@ import {
 import type { ImageGen, LLM, StockProvider, Storage, TTS } from "@shortloop/providers";
 import { renderHandler } from "./render";
 import { scriptHandler } from "./script";
+import { visualsHandler } from "./visuals";
 import { voiceHandler } from "./voice";
 
 export interface WorkerProviders {
@@ -17,6 +18,8 @@ export interface WorkerProviders {
   tts?: TTS;
   image?: ImageGen;
   stock?: StockProvider[];
+  /** Used to download stock media (injectable for tests). */
+  fetch?: typeof fetch;
 }
 
 export interface WorkerDeps {
@@ -43,8 +46,11 @@ export function createWorker(deps: WorkerDeps): JobService {
       ? scriptHandler(deps.db, p.llm)
       : unavailable("script", "not configured (set ANTHROPIC_API_KEY or OPENAI_API_KEY)"),
     voice: p.tts ? voiceHandler(deps.db, p.tts, deps.storage) : unavailable("voice", "not configured"),
-    visuals: unavailable("visuals", "not implemented yet"),
-    render: renderHandler(deps.storage),
+    visuals:
+      (p.stock?.length ?? 0) > 0 || p.image
+        ? visualsHandler(deps.db, deps.storage, p.stock ?? [], p.image, p.fetch)
+        : unavailable("visuals", "not configured (set PEXELS_API_KEY or an image provider)"),
+    render: renderHandler(deps.storage, deps.db),
     publish: unavailable("publish", "not implemented yet"),
     trends: unavailable("trends", "not implemented yet"),
   };
