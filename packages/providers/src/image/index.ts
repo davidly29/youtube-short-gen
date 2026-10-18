@@ -1,2 +1,10 @@
 export * from "./image";
-export { FakeImage, FalImage, generateImageAsset, imageFromEnv, PollinationsImage } from "./providers";
+export {
+  FakeImage,
+  FalImage,
+  GEMINI_IMAGE_MODEL,
+  GeminiImage,
+  generateImageAsset,
+  imageFromEnv,
+  PollinationsImage,
+} from "./providers";

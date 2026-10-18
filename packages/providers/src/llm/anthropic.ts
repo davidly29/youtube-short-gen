@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_MODELS } from "@shortloop/contracts";
 import { JSON_ONLY, parseReply, type JsonRequest, type LLM } from "./llm";
 
 export class AnthropicLLM implements LLM {
@@ -7,7 +8,7 @@ export class AnthropicLLM implements LLM {
 
   constructor(
     apiKey: string,
-    readonly model = "claude-sonnet-5-5",
+    readonly model: string = DEFAULT_MODELS.anthropic.text,
   ) {
     this.client = new Anthropic({ apiKey });
   }

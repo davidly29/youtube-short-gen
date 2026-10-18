@@ -6,6 +6,7 @@ export * from "./llm";
 export * from "./tts";
 export * from "./image";
 export * from "./stock";
+export * from "./keys";
 export {
   measureLufs,
   normaliseLoudness,

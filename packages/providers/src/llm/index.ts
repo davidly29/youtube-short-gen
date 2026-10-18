@@ -6,6 +6,7 @@ import { FakeScriptLLM } from "./fake";
 export { extractJson, JSON_ONLY, LLMOutputError, parseReply, type JsonRequest, type LLM } from "./llm";
 export { AnthropicLLM } from "./anthropic";
 export { OpenAILLM } from "./openai";
+export { GEMINI_TEXT_MODEL, GeminiLLM } from "./gemini";
 export { FakeLLM, FakeScriptLLM } from "./fake";
 
 /** LLM_PROVIDER=anthropic|openai (default: whichever key is set, Anthropic first). */
