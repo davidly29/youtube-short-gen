@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Zod schemas shared by every app: Project, Asset, Script, Timeline, Job, PublishRequest",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./fixtures": "./src/fixtures.ts"
   },
   "scripts": {
     "lint": "eslint src",

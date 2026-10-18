@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { Job as JobSchema, type Job } from "@shortloop/contracts";
-import { schema, toJob, type Db } from "@shortloop/db";
-import { and, eq, sum } from "drizzle-orm";
+import { and, type Db, eq, schema, sum, toJob } from "@shortloop/db";
 
 export type JobType = Job["type"];
 type Status = Job["status"];

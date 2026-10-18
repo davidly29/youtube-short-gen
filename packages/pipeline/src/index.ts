@@ -3,3 +3,7 @@ export const PACKAGE_NAME = "@shortloop/pipeline" as const;
 
 export * from "./jobs";
 export { BullQueueDriver, RedisEventBus } from "./jobs-redis";
+export * from "./credits";
+export * from "./rights";
+export * from "./script";
+export * from "./policy";
