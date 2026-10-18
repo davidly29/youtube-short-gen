@@ -121,6 +121,18 @@ def _openai(text: str, voice: str, out: Path) -> None:
     out.write_bytes(r.content)
 
 
+def _run_coro(coro):
+    """Run a coroutine even when called from inside the MCP server's running event loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        return ex.submit(asyncio.run, coro).result()
+
+
 def synthesize(text: str, voice: str | None = None, provider: str | None = None, speed: float = 1.0) -> dict[str, Any]:
     """Generate narration. Returns a registered audio media item with word timings in meta.words."""
     provider = (provider or settings.tts_provider).lower()
@@ -132,7 +144,7 @@ def synthesize(text: str, voice: str | None = None, provider: str | None = None,
 
     if provider == "edge":
         rate = f"{round((speed - 1) * 100):+d}%"
-        words = asyncio.run(_edge(text, voice or EDGE_VOICES[0]["id"], rate, out))
+        words = _run_coro(_edge(text, voice or EDGE_VOICES[0]["id"], rate, out))
         words = _attach_punctuation(text, words)
     elif provider == "elevenlabs":
         words = _eleven(text, voice or "", out)

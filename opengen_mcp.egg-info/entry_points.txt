@@ -1,2 +1,0 @@
-[console_scripts]
-opengen-mcp = opengen.server:main

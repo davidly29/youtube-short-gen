@@ -1,126 +1,20 @@
-# OpenGen MCP
+# ShortLoop
 
-A local, self-hosted MCP server for making short-form videos with Claude, built to learn how
-Everygen-style video MCPs work without a subscription. Claude writes the script and directs;
-this server narrates, makes visuals, times scenes to the voice, burns animated captions and
-renders the MP4 on your machine.
+Original-content Shorts studio: turn a rising trend into a published, monetisable 9:16 video using only rights-clean inputs
+(your own footage, AI-generated visuals, licensed stock, synthetic voice). Delivered as a web app and an MCP server.
 
-> Personal, non-commercial learning project. It is an independent re-implementation of the
-> *publicly documented* behaviour of tools like Everygen (compose a narrated, captioned 9:16 Short
-> from a prompt; format playbooks; async jobs). It contains no Everygen code, and tool names other than
-> `compose_video` are its own. Use only media you own or generate. It does not download from YouTube,
-> TikTok, Instagram and similar sites, and it does not post anywhere.
+| Where | What |
+| --- | --- |
+| [docs/business-plan.md](docs/business-plan.md) | Business plan, executive roadmap, sprint plan, agent working agreement, full backlog |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Backlog in dependency order, linked to GitHub issues |
+| [AGENTS.md](AGENTS.md) | How agents and humans pick up, build and hand over work |
+| [poc/opengen-mcp](poc/opengen-mcp) | Working Python proof of concept (local video MCP server), reference only |
 
-## How it maps to Everygen
+## Status
 
-| Everygen (documented) | OpenGen tool(s) | Default engine (free) | Optional paid engine |
-| --- | --- | --- | --- |
-| `compose_video`: topic → narrated, captioned Short | `compose_video` + `wait_for_job` | everything below, rendered with FFmpeg | — |
-| `media:upload` scope | `import_media`, `list_media` | local files / direct links | — |
-| `voiceover:generate` | `generate_voiceover` | Microsoft Edge neural voices (`edge-tts`) | ElevenLabs, OpenAI |
-| `image:generate` | `generate_image` | Pollinations (Flux) | fal.ai (Flux), OpenAI gpt-image-1 |
-| `video:generate` | `generate_video` | Ken Burns motion on an image | fal.ai (Kling, Seedance, etc.) |
-| Captions workflow | `add_captions`, `transcribe_media` | local Whisper (faster-whisper) + libass | — |
-| Workflows (faceless, animal story, ranking, 3D explainer, …) | `list_workflows`, `get_workflow` | Markdown playbooks in `opengen/workflows/` | — |
-| `generation:read` (status, credits) | `get_job`, `estimate_cost`, `get_usage` | local SQLite | — |
-| (not in Everygen) clip your own long video | `find_clips`, `cut_clip`, `reframe_video` | Whisper + FFmpeg | — |
-| `preview` | `preview_media` (returns a frame Claude can see) | FFmpeg | — |
+Sprint S0 (19–30 Oct 2026): foundation, i.e. the monorepo, contracts, database, job queue and render smoke test.
+Development is issue-driven: issues labelled `agent-ready` are built by coding agents on `agent/*` branches and reviewed by the owner.
 
-Not replicated: `voice:change` and `audio:generate` (music). Import your own royalty-free track
-and pass it as `music` to `compose_video`; it is auto-ducked under the voice.
+## Try the POC
 
-## Install (macOS / Linux / Windows)
-
-1. Install **Python 3.10+** and **FFmpeg** with libass (`brew install ffmpeg`, `sudo apt install ffmpeg`,
-   or `winget install Gyan.FFmpeg`).
-2. Install the server:
-   ```bash
-   cd opengen-mcp
-   python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-   pip install -e ".[whisper]"                              # drop [whisper] if you won't transcribe
-   cp .env.example .env                                     # optional: add API keys
-   ```
-3. Check it: `pytest -q` (runs fully offline in about 30 s).
-
-## Connect to Claude
-
-**Claude Desktop** (Settings → Developer → Edit Config), add:
-```json
-{
-  "mcpServers": {
-    "opengen": {
-      "command": "/ABSOLUTE/PATH/opengen-mcp/.venv/bin/opengen-mcp",
-      "env": { "OPENGEN_HOME": "/ABSOLUTE/PATH/opengen-output" }
-    }
-  }
-}
-```
-On Windows use `...\\.venv\\Scripts\\opengen-mcp.exe`. Restart Claude Desktop.
-
-**Claude Code**:
-```bash
-claude mcp add opengen -- /ABSOLUTE/PATH/opengen-mcp/.venv/bin/opengen-mcp
-```
-
-**HTTP mode** (any MCP client that takes a URL, plus clickable download links):
-```bash
-OPENGEN_PUBLIC_BASE_URL=http://127.0.0.1:8765 opengen-mcp --http --port 8765
-# MCP endpoint: http://127.0.0.1:8765/mcp   files: http://127.0.0.1:8765/files/<name>.mp4
-```
-This has no authentication, so keep it on localhost.
-
-## Try it
-
-Ask Claude:
-
-> Use opengen. Read the faceless-story workflow, then make a 45-second Short about why octopuses
-> have three hearts, storyboard style, Irish male voice, pop captions. Preview it when done.
-
-Claude will read the playbook, write the narration and image prompts, call `estimate_cost`, then
-`compose_video`, poll `wait_for_job`, and look at frames with `preview_media`. The MP4 path is in the
-job output (finished files live in `$OPENGEN_HOME/media`).
-
-Other prompts to try:
-- "Import ~/Movies/my-podcast.mp4 (I own it), transcribe it, find the 3 best 30-second moments and cut them as vertical clips with bold captions."
-- "Add karaoke captions to ~/Desktop/talk.mp4."
-- "Make a top-5 ranking clip about the fastest animals, using title cards between entries."
-
-## How compose_video works
-
-```
-scenes[] ──► for each scene:
-               narration ─► TTS (word timings) ─► scene length = voice length + 0.15 s
-               visual    ─► library media | generated image (+Ken Burns) | generated video clip
-                            fitted to 9:16 (crop / blur / pad) and trimmed or looped to that length
-          ──► concat scenes ─► ASS captions from shifted word timings ─► optional ducked music
-          ──► H.264/AAC MP4, 30 fps, 1080x1920 (max 180 s)
-```
-
-Caption styles: `bold`, `karaoke`, `pop`, `boxed`, `minimal`, `neon` (see `opengen/captions.py`).
-Visual styles: `photoreal`, `cinematic`, `3d`, `hand-drawn`, `whiteboard`, `storyboard`, `anime`.
-
-## Project layout
-
-```
-opengen/
-  server.py      MCP tools (FastMCP), job runner, file route
-  compose.py     scene timing, rendering, captions, music ducking
-  tts.py         edge / elevenlabs / openai / offline voices with word timings
-  images.py      pollinations / fal / openai / card images
-  video_gen.py   Ken Burns animation, fal.ai video models
-  transcribe.py  faster-whisper
-  captions.py    animated caption styles (ASS)
-  clips.py       find_clips heuristic, cut + reframe
-  store.py       SQLite library of media, jobs, usage
-  workflows/     format playbooks the agent reads
-tests/           offline unit + end-to-end MCP tests
-```
-
-## Notes and limits
-
-- Free online providers (Edge TTS, Pollinations) are rate-limited and can change without notice;
-  switch with `OPENGEN_TTS` / `OPENGEN_IMAGE` or per call.
-- `find_clips` is a heuristic (hook words, pace, clean sentence boundaries). It is meant as a first
-  pass that Claude re-ranks by reading the text, as the playbook instructs.
-- Reframing is centre-based; there is no face tracking yet.
-- The first `transcribe_media` call downloads the Whisper model (~150 MB for `base`).
+See [poc/opengen-mcp/README.md](poc/opengen-mcp/README.md).

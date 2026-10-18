@@ -1,18 +1,3 @@
-Metadata-Version: 2.4
-Name: opengen-mcp
-Version: 0.1.0
-Summary: Local, self-hosted short-form video MCP server (personal learning clone of Everygen-style tools)
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-Requires-Dist: mcp[cli]<2,>=1.12
-Requires-Dist: pillow>=10
-Requires-Dist: httpx>=0.27
-Requires-Dist: edge-tts>=7
-Provides-Extra: whisper
-Requires-Dist: faster-whisper>=1.0; extra == "whisper"
-Provides-Extra: dev
-Requires-Dist: pytest>=8; extra == "dev"
-
 # OpenGen MCP
 
 A local, self-hosted MCP server for making short-form videos with Claude, built to learn how
@@ -56,6 +41,34 @@ and pass it as `music` to `compose_video`; it is auto-ducked under the voice.
    cp .env.example .env                                     # optional: add API keys
    ```
 3. Check it: `pytest -q` (runs fully offline in about 30 s).
+
+### Windows (PowerShell)
+
+PowerShell doesn't accept `&&` or `source`; run each line on its own:
+```powershell
+winget install Gyan.FFmpeg          # then close and reopen PowerShell
+ffmpeg -version                     # should print a version
+cd $HOME\Downloads\opengen-mcp      # wherever you unzipped it
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[whisper]"
+Copy-Item .env.example .env
+pytest -q
+```
+If `Activate.ps1` says scripts are disabled, run
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then activate again.
+
+Claude Desktop config on Windows is `%APPDATA%\Claude\claude_desktop_config.json`. Double the backslashes:
+```json
+{
+  "mcpServers": {
+    "opengen": {
+      "command": "C:\\Users\\YOU\\Downloads\\opengen-mcp\\.venv\\Scripts\\opengen-mcp.exe",
+      "env": { "OPENGEN_HOME": "C:\\Users\\YOU\\Videos\\opengen" }
+    }
+  }
+}
+```
 
 ## Connect to Claude
 
