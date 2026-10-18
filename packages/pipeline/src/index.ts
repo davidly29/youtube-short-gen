@@ -7,3 +7,6 @@ export * from "./credits";
 export * from "./rights";
 export * from "./script";
 export * from "./policy";
+export * from "./visuals";
+export * from "./timeline";
+export * from "./variation";

@@ -23,6 +23,7 @@ export const assetSource = pgEnum("asset_source", [
   "stock",
   "ai_generated",
   "library_music",
+  "render",
 ]);
 export const platform = pgEnum("platform", ["youtube", "tiktok", "instagram"]);
 export const jobType = pgEnum("job_type", ["script", "voice", "visuals", "render", "publish", "trends"]);
@@ -200,4 +201,20 @@ export const creditLedger = pgTable(
       .on(t.jobId, t.reason)
       .where(sql`${t.jobId} is not null`),
   ],
+);
+
+/** Append-only audit trail (overrides, approvals, publishes). Extended by E13-02. */
+export const auditEvents = pgTable(
+  "audit_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id),
+    type: text("type").notNull(),
+    subjectId: text("subject_id"),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: createdAt(),
+  },
+  (t) => [index("audit_events_owner_type").on(t.ownerId, t.type)],
 );
