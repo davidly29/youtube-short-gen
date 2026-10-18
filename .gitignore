@@ -27,3 +27,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .storage/
+.e2e-storage/
+.pglite/
+test-results/
+playwright-report/
