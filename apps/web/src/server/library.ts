@@ -9,6 +9,7 @@ import { z } from "zod";
 import { checkUpload, MAX_UPLOAD_BYTES, UPLOAD_TYPES, type UploadExt } from "../lib/upload-rules";
 import { UserError } from "./errors";
 import { runtime } from "./runtime";
+import { uploadUrl } from "./upload-signing";
 
 export const PresignRequest = z.object({
   filename: z.string().min(1).max(200),
@@ -19,15 +20,14 @@ export const PresignRequest = z.object({
 
 const userPrefix = (userId: string) => `uploads/${userId}/`;
 
-/** Step 1: validate, then hand back a signed URL the browser PUTs the file to (R2 directly, or our local route). */
+/** Step 1: validate, then hand back a signed URL (our own upload route) the browser PUTs the file to. */
 export async function presignUpload(userId: string, input: unknown) {
   const req = PresignRequest.parse(input);
   const check = checkUpload({ name: req.filename, size: req.size, type: req.contentType }, req.attested);
   if (!check.ok) throw new UserError(check.error);
-  const { storage } = await runtime();
   const key = `${userPrefix(userId)}${randomUUID()}.${check.ext}`;
   const contentType = req.contentType || UPLOAD_TYPES[check.ext].mime[0];
-  return { key, url: await storage.signedPutUrl(key, contentType, 3600), contentType };
+  return { key, url: uploadUrl(key), contentType };
 }
 
 export const CompleteRequest = z.object({

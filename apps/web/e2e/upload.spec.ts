@@ -42,6 +42,9 @@ test.describe("E2-01 upload with ownership attestation", () => {
       data: { key: "uploads/someone-else/x.png", filename: "x.png", attested: true },
     });
     expect(complete.status()).toBe(400);
+    const ok = await (await post({ filename: "a.png", contentType: "image/png", size: 10, attested: true })).json();
+    const forged = await page.request.put(String(ok.url).replace(/sig=[0-9a-f]+/, "sig=00"), { data: "x" });
+    expect(forged.status()).toBe(403);
   });
 
   test("the browser refuses unsupported files before uploading", async ({ page }) => {
