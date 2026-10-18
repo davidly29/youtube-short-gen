@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The TypeScript app job is added by ticket E0-01 together with package.json.
   poc:
     name: POC (Python)
     runs-on: ubuntu-latest
@@ -30,18 +31,3 @@ jobs:
           OPENGEN_HOME: ${{ runner.temp }}/opengen
         run: pytest -q
 
-  app:
-    name: App (TypeScript)
-    runs-on: ubuntu-latest
-    if: ${{ hashFiles('package.json') != '' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
