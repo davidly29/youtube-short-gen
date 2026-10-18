@@ -50,13 +50,16 @@ export async function credits(userId: string) {
   };
 }
 
-export async function capabilities() {
+/** What this user can do right now: their own keys first, then the platform defaults. */
+export async function capabilities(userId: string) {
   const rt = await runtime();
+  const p = await rt.providersFor(userId);
   return {
-    aiScripts: Boolean(rt.llm),
-    stock: rt.stock.map((s) => s.provider),
-    image: rt.image.provider,
-    voices: rt.tts.voices(),
+    aiScripts: Boolean(p.llm),
+    llmProvider: p.llm?.provider,
+    stock: p.stock.map((s) => s.provider),
+    image: p.image.provider,
+    voices: p.tts.voices(),
     mode: rt.mode,
   };
 }
@@ -85,9 +88,9 @@ export async function createProject(userId: string, input: z.infer<typeof NewPro
 /** Queue an AI script for the project's topic. Returns the job id to poll. */
 export async function requestAiScript(userId: string, projectId: string) {
   const rt = await runtime();
-  if (!rt.llm)
+  if (!(await rt.providersFor(userId)).llm)
     throw new UserError(
-      "AI scripts aren't set up on this server yet. Write the script yourself, or add an LLM key.",
+      "AI scripts use your own AI key. Add an Anthropic, OpenAI or Gemini key in Settings → API keys, or write the script yourself.",
     );
   const p = await ownProject(userId, projectId);
   const job = await rt.jobs.enqueue(
@@ -335,7 +338,7 @@ export async function alternatives(userId: string, projectId: string, beatIndex:
   const beat = view.script?.beats[beatIndex];
   if (!beat) throw new UserError("Unknown beat");
   const results: StockResult[] = [];
-  for (const provider of rt.stock) {
+  for (const provider of (await rt.providersFor(userId)).stock) {
     try {
       results.push(
         ...(await provider.search({
@@ -368,7 +371,7 @@ export async function swapVisual(
   const asset =
     choice.kind === "stock"
       ? await importStock(choice.result, userId, rt.storage)
-      : await generateImageAsset(rt.image, rt.storage, userId, {
+      : await generateImageAsset((await rt.providersFor(userId)).image, rt.storage, userId, {
           prompt: choice.prompt || view.script?.beats[beatIndex]?.visualQuery || "abstract background",
           aspect: "9:16",
           style: view.project.settings.imageStyle,

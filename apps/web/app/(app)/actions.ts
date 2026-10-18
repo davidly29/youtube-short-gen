@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "../../src/server/auth";
+import { deleteKey, saveKey } from "../../src/server/keys";
 import {
   alternatives,
   approve,
@@ -16,7 +17,7 @@ import {
   type ScriptDraft,
 } from "../../src/server/projects";
 import type { StockResult } from "@shortloop/providers";
-import type { z } from "zod";
+import { ZodError, type z } from "zod";
 
 type Result<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -28,10 +29,11 @@ async function wrap<T>(fn: (userId: string) => Promise<T>): Promise<Result<T>> {
     const message =
       e instanceof UserError
         ? e.message
-        : e instanceof Error && "issues" in e
-          ? "Please check the highlighted fields."
+        : e instanceof ZodError
+          ? (e.issues[0]?.message ?? "Please check the highlighted fields.")
           : "Something went wrong. Please try again.";
-    if (!(e instanceof UserError)) console.error(e);
+    // Validation errors are the user's to fix; don't log them (they may echo what was typed, e.g. a key).
+    if (!(e instanceof UserError) && !(e instanceof ZodError)) console.error(e);
     return { ok: false, error: message };
   }
 }
@@ -79,5 +81,22 @@ export async function swapAction(
 export async function approveAction(projectId: string) {
   const r = await wrap((uid) => approve(uid, projectId));
   revalidatePath(`/projects/${projectId}`);
+  return r;
+}
+
+export async function saveKeyAction(input: {
+  provider: string;
+  key: string;
+  model?: string;
+  imageModel?: string;
+}) {
+  const r = await wrap((uid) => saveKey(uid, input));
+  revalidatePath("/", "layout");
+  return r;
+}
+
+export async function deleteKeyAction(provider: string) {
+  const r = await wrap((uid) => deleteKey(uid, provider));
+  revalidatePath("/", "layout");
   return r;
 }

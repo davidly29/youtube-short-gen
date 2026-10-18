@@ -10,7 +10,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   try {
     const [view, caps, balance, library] = await Promise.all([
       projectView(user.id, id),
-      capabilities(),
+      capabilities(user.id),
       credits(user.id),
       listLibrary(user.id),
     ]);

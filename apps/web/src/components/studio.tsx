@@ -255,8 +255,12 @@ function ScriptPanel({ view, caps, onChanged }: { view: View; caps: Caps; onChan
           </Button>
         </div>
         {!caps.aiScripts && (
-          <p className="mt-3 text-xs text-ink-soft">
-            AI scripts need an LLM key on the server. You can still write your own.
+          <p className="mt-3 text-xs text-ink-soft" data-testid="needs-key">
+            AI scripts use your own AI key.{" "}
+            <a href="/settings/keys" className="font-semibold text-brand">
+              Add a Gemini, Claude or OpenAI key
+            </a>{" "}
+            (Gemini has a free tier), or write it yourself.
           </p>
         )}
         <ErrorText>{error}</ErrorText>
