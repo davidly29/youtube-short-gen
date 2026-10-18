@@ -1,0 +1,25 @@
+{
+  "id": "evt_checkout",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 1792800000,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": null,
+    "idempotency_key": null
+  },
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test_1",
+      "object": "checkout.session",
+      "mode": "subscription",
+      "client_reference_id": "usr_stripe_test",
+      "customer": "cus_TEST123",
+      "subscription": "sub_TEST123",
+      "payment_status": "paid",
+      "status": "complete"
+    }
+  }
+}

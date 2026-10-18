@@ -2,6 +2,8 @@ import "server-only";
 import { defaultDatabaseUrl, openDb, type DbHandle } from "@shortloop/db";
 import {
   BullQueueDriver,
+  expireCredits,
+  type PriceMap,
   JobService,
   MemoryEventBus,
   MemoryQueueDriver,
@@ -10,8 +12,11 @@ import {
   type QueueDriver,
 } from "@shortloop/pipeline";
 import {
+  billingFromEnv,
+  FakeBilling,
   FakeImage,
   FakeTTS,
+  type BillingProvider,
   platformProvidersFromEnv,
   secretBoxFromEnv,
   storageFromEnv,
@@ -43,6 +48,10 @@ export interface Runtime {
   sharedKeys: boolean;
   /** Encrypts users' own API keys at rest. */
   box: SecretBox;
+  /** Stripe (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET), a fake in fake mode, or undefined when billing is off. */
+  billing?: BillingProvider;
+  /** Stripe price id -> plan. */
+  prices: PriceMap;
   /** Fake adapters and offline key checks (e2e and local demos). */
   fake: boolean;
   /** The providers a user's own keys unlock, layered over the platform defaults. */
@@ -63,6 +72,17 @@ async function build(): Promise<Runtime> {
     ? { llm: undefined, tts: new FakeTTS(), image: new FakeImage(), stock: [], sharedKeys: false }
     : platformProvidersFromEnv();
   const { llm, tts, image, stock } = platform;
+  const billing = fake() ? new FakeBilling() : billingFromEnv();
+  const prices: PriceMap = fake()
+    ? { price_creator_fake: "creator", price_pro_fake: "pro" }
+    : Object.fromEntries(
+        [
+          [process.env.STRIPE_PRICE_CREATOR, "creator"],
+          [process.env.STRIPE_PRICE_PRO, "pro"],
+        ].filter((e): e is [string, "creator" | "pro"] => Boolean(e[0])),
+      );
+  // Monthly credits that weren't used expire at the end of their billing period (no rollover).
+  setInterval(() => void expireCredits(handle.db).catch((e) => console.error(e)), 10 * 60_000).unref();
   const resolveOwn = userKeyResolver(handle.db, box, { fake: fake() });
   const providersFor = async (userId: string): Promise<UserProviders> => {
     const own = await resolveOwn(userId);
@@ -103,6 +123,8 @@ async function build(): Promise<Runtime> {
     stock,
     sharedKeys: platform.sharedKeys,
     box,
+    billing,
+    prices,
     fake: fake(),
     providersFor,
     mode: redisUrl ? "queue" : "all-in-one",

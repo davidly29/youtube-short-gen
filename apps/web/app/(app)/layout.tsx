@@ -36,14 +36,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <span
+            <Link
+              href="/billing"
               data-testid="credits"
-              className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-deep"
-              title="Short credits"
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-deep hover:bg-brand/15"
+              title="Short credits: plans and billing"
             >
               <Coins className="size-3.5" aria-hidden />
               {balance.shorts} Shorts left
-            </span>
+            </Link>
             <Link
               href="/new"
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-deep"
