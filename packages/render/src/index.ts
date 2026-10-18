@@ -10,3 +10,4 @@ export {
   type ResolvedAsset,
 } from "./render";
 export { compareFrame, makeFixtureAssets, fixtureTimeline } from "./fixture";
+export { buildAss, CAPTION_PRESETS, paginate, SAFE_AREA } from "./captions";
