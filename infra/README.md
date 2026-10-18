@@ -24,8 +24,10 @@ Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set
 | `BETTER_AUTH_URL`              | `https://web-staging-0f0b5.up.railway.app`                               |
 | `BETTER_AUTH_SECRET`           | random, set in Railway only                                              |
 | `RAILPACK_DEPLOY_APT_PACKAGES` | `ffmpeg fonts-dejavu-core` (rendering needs FFmpeg in the runtime image) |
-| `ANTHROPIC_API_KEY`            | optional: enables "Write it with AI" (set by the owner in Railway)       |
-| `PEXELS_API_KEY`               | optional: stock visuals; without it visuals are AI images                |
+| `SHORTLOOP_SECRETS_KEY`        | random, set in Railway only; encrypts users' own API keys (ADR 0006)     |
+| `SHORTLOOP_SHARED_KEYS`        | unset by default; `1` shares the operator's env AI keys with every user  |
+
+Users add their own AI keys in Settings → API keys (ADR 0006); the operator pays only for free defaults.
 
 Browser uploads go to the app's signed `/api/uploads/put/...` route, which streams to the bucket, so the bucket
 needs no CORS rule. Media is served to the browser with short-lived presigned GET URLs.

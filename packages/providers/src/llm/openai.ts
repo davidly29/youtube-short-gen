@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { DEFAULT_MODELS } from "@shortloop/contracts";
 import { JSON_ONLY, parseReply, type JsonRequest, type LLM } from "./llm";
 
 /** OpenAI or any OpenAI-compatible endpoint (set baseURL). */
@@ -8,7 +9,7 @@ export class OpenAILLM implements LLM {
 
   constructor(
     apiKey: string,
-    readonly model = "gpt-5-mini",
+    readonly model: string = DEFAULT_MODELS.openai.text,
     baseURL?: string,
   ) {
     this.client = new OpenAI({ apiKey, baseURL });

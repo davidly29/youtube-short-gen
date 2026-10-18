@@ -11,8 +11,21 @@ export async function signUp(page: Page) {
   return email;
 }
 
+/** Save a key in Settings -> API keys. With fake providers, keys starting `test-` pass the check. */
+export async function addKey(page: Page, provider: string, key: string) {
+  await page.goto("/settings/keys");
+  await page.getByTestId(`key-${provider}-add`).click();
+  await page
+    .getByTestId(`key-${provider}`)
+    .getByLabel(/API key/)
+    .fill(key);
+  await page.getByTestId(`key-${provider}-save`).click();
+}
+
 /** Topic -> AI script (fake LLM) -> saved script -> "Make my Short" -> rendered preview. */
 export async function makeShort(page: Page, topic = "Why octopuses have three hearts") {
+  await addKey(page, "gemini", "test-gemini-key-0001");
+  await expect(page.getByTestId("key-gemini-status")).toContainText("••••0001");
   await page.getByRole("link", { name: "New Short" }).click();
   await page.getByLabel("Topic").fill(topic);
   await page.getByRole("radio", { name: "30s" }).click();

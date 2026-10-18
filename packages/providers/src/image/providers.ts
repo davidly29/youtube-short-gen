@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { Asset } from "@shortloop/contracts";
+import { Asset, DEFAULT_MODELS } from "@shortloop/contracts";
 import type { Storage } from "../storage";
 import { join } from "node:path";
 import { runFfmpeg } from "../media/ffmpeg";
+import { geminiGenerate } from "../llm/gemini";
 import {
   checkImagePrompt,
   fullPrompt,
@@ -18,15 +19,21 @@ import {
 abstract class BaseImageGen implements ImageGen {
   abstract readonly provider: string;
   abstract readonly model: string;
-  protected abstract render(prompt: string, req: ImageRequest): Promise<Buffer>;
+  /** Image bytes, or bytes plus the file extension when the provider decides the format. */
+  protected abstract render(
+    prompt: string,
+    req: ImageRequest,
+  ): Promise<Buffer | { data: Buffer; ext: string }>;
   protected readonly ext: string = "jpg";
 
   async generate(req: ImageRequest): Promise<ImageResult> {
     const verdict = checkImagePrompt(req.prompt);
     if (!verdict.ok) throw new ImagePromptRejected(verdict.reason);
     const prompt = fullPrompt(req.prompt, req.style);
-    const path = join(req.outDir, `${randomUUID()}.${this.ext}`);
-    await writeFile(path, await this.render(prompt, req));
+    const out = await this.render(prompt, req);
+    const [data, ext] = Buffer.isBuffer(out) ? [out, this.ext] : [out.data, out.ext];
+    const path = join(req.outDir, `${randomUUID()}.${ext}`);
+    await writeFile(path, data);
     return { path, provider: this.provider, model: this.model, prompt };
   }
 }
@@ -59,7 +66,7 @@ export class FalImage extends BaseImageGen {
   readonly provider = "fal";
   constructor(
     private readonly key: string,
-    readonly model = "fal-ai/flux/schnell",
+    readonly model: string = DEFAULT_MODELS.fal.image,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {
     super();
@@ -76,6 +83,33 @@ export class FalImage extends BaseImageGen {
     if (!img) throw new Error("fal returned no image");
     const file = await this.fetchImpl(img.url);
     return Buffer.from(await file.arrayBuffer());
+  }
+}
+
+/** Default Gemini image model ("Nano Banana"); users can override it in Settings. */
+export const GEMINI_IMAGE_MODEL = DEFAULT_MODELS.gemini.image;
+
+/** Google Gemini native image generation with the user's AI Studio key. */
+export class GeminiImage extends BaseImageGen {
+  readonly provider = "gemini";
+  constructor(
+    private readonly key: string,
+    readonly model: string = GEMINI_IMAGE_MODEL,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {
+    super();
+  }
+  protected async render(prompt: string, req: ImageRequest): Promise<{ data: Buffer; ext: string }> {
+    const data = await geminiGenerate(this.fetchImpl, this.key, this.model, {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: req.aspect } },
+    });
+    const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+    if (!part?.inlineData) throw new Error("Gemini returned no image");
+    return {
+      data: Buffer.from(part.inlineData.data, "base64"),
+      ext: part.inlineData.mimeType === "image/jpeg" ? "jpg" : "png",
+    };
   }
 }
 

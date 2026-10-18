@@ -1,4 +1,4 @@
-import { Coins, FolderOpen, ImageIcon, Plus } from "lucide-react";
+import { Coins, FolderOpen, ImageIcon, KeyRound, Plus } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "../../src/components/sign-out";
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const NAV = [
   { href: "/projects", label: "Projects", icon: FolderOpen },
   { href: "/library", label: "Library", icon: ImageIcon },
+  { href: "/settings/keys", label: "API keys", icon: KeyRound },
 ];
 
 export default async function AppLayout({ children }: { children: ReactNode }) {

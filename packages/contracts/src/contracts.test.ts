@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ApiKeyInfo, ApiKeyProvider, PROVIDER_CAPABILITIES, SaveApiKey } from "./keys";
 import {
   Asset,
   AudioClip,
@@ -121,5 +122,25 @@ describe("PublishRequest", () => {
     bad(PublishRequest, noDisclosure);
     bad(PublishRequest, { ...validPublishRequest, platform: "vimeo" });
     bad(PublishRequest, { ...validPublishRequest, title: "x".repeat(101) });
+  });
+});
+
+describe("SaveApiKey / ApiKeyInfo (BYOK)", () => {
+  it("accepts a known provider with a plausible key, rejects unknown providers and short keys", () => {
+    expect(SaveApiKey.safeParse({ provider: "gemini", key: "AIzaSyExampleExample" }).success).toBe(true);
+    expect(SaveApiKey.safeParse({ provider: "gemini", key: "short" }).success).toBe(false);
+    expect(SaveApiKey.safeParse({ provider: "midjourney", key: "AIzaSyExampleExample" }).success).toBe(false);
+  });
+  it("info never carries a secret field", () => {
+    const info = ApiKeyInfo.parse({
+      provider: "openai",
+      last4: "abcd",
+      updatedAt: "2026-10-18T00:00:00Z",
+      key: "sk-secret",
+    });
+    expect(info).not.toHaveProperty("key");
+  });
+  it("every provider has at least one capability", () => {
+    for (const p of ApiKeyProvider.options) expect(PROVIDER_CAPABILITIES[p].length).toBeGreaterThan(0);
   });
 });
