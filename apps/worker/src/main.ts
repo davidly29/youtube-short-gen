@@ -1,13 +1,7 @@
 import { defaultDatabaseUrl, openDb } from "@shortloop/db";
 import { BullQueueDriver, MemoryEventBus, MemoryQueueDriver, RedisEventBus } from "@shortloop/pipeline";
-import {
-  imageFromEnv,
-  llmFromEnv,
-  stockFromEnv,
-  storageFromEnv,
-  ttsFromEnv,
-  type LLM,
-} from "@shortloop/providers";
+import { platformProvidersFromEnv, secretBoxFromEnv, storageFromEnv } from "@shortloop/providers";
+import { userKeyResolver } from "./keys";
 import { createWorker } from "./worker";
 
 const redisUrl = process.env.REDIS_URL;
@@ -16,19 +10,19 @@ await handle.migrate();
 
 const driver = redisUrl ? new BullQueueDriver(redisUrl, { render: 2 }) : new MemoryQueueDriver();
 const bus = redisUrl ? new RedisEventBus(redisUrl) : new MemoryEventBus();
-let llm: LLM | undefined;
-try {
-  llm = llmFromEnv();
-} catch (e) {
-  console.warn(`script stage disabled: ${(e as Error).message}`);
-}
+const platform = platformProvidersFromEnv();
 createWorker({
   db: handle.db,
   driver,
   bus,
   storage: storageFromEnv(),
-  providers: { llm, tts: ttsFromEnv(), image: imageFromEnv(), stock: stockFromEnv() },
+  providers: platform,
+  // Each job runs on its owner's own API keys (BYOK); platform defaults fill the gaps.
+  providersFor: userKeyResolver(handle.db, secretBoxFromEnv()),
 });
+console.log(
+  `platform providers: ${platform.sharedKeys ? "operator keys shared with all users" : "free defaults only"}`,
+);
 
 console.log(`worker started (${redisUrl ? "BullMQ" : "in-memory"} queues)`);
 

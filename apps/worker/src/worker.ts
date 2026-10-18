@@ -28,8 +28,21 @@ export interface WorkerDeps {
   driver: QueueDriver;
   bus: EventBus;
   storage: Storage;
+  /** Platform defaults (free providers, or shared keys if the operator opts in). */
   providers?: WorkerProviders;
+  /**
+   * Per-user providers from the job owner's own API keys (BYOK). Whatever it returns overrides the
+   * defaults for that job, so each creator's AI usage is billed to their own accounts.
+   */
+  providersFor?: (ownerId: string) => Promise<WorkerProviders>;
 }
+
+/** Shown when a stage needs a paid provider the user hasn't connected. */
+export const NEEDS_KEY = {
+  llm: "AI scripts need your own AI key. Add an Anthropic, OpenAI or Gemini key in Settings → API keys.",
+  tts: "No voice provider is set up.",
+  visuals: "No visual source is set up. Add a Pexels or Gemini key in Settings → API keys.",
+} as const;
 
 /** Stages that aren't built (or configured) yet fail loudly instead of hanging. */
 const unavailable =
@@ -41,16 +54,33 @@ const unavailable =
 /** Wire every pipeline stage to its handler. One queue per stage. */
 export function createWorker(deps: WorkerDeps): JobService {
   const jobs = new JobService(deps.db, deps.driver, deps.bus);
-  const p = deps.providers ?? {};
+  const resolve = async (ownerId: string): Promise<WorkerProviders> => {
+    const base = deps.providers ?? {};
+    const own = (await deps.providersFor?.(ownerId)) ?? {};
+    return {
+      llm: own.llm ?? base.llm,
+      tts: own.tts ?? base.tts,
+      image: own.image ?? base.image,
+      stock: own.stock?.length ? own.stock : base.stock,
+      fetch: base.fetch,
+    };
+  };
   const handlers: Record<JobType, JobHandler> = {
-    script: p.llm
-      ? scriptHandler(deps.db, p.llm)
-      : unavailable("script", "not configured (set ANTHROPIC_API_KEY or OPENAI_API_KEY)"),
-    voice: p.tts ? voiceHandler(deps.db, p.tts, deps.storage) : unavailable("voice", "not configured"),
-    visuals:
-      (p.stock?.length ?? 0) > 0 || p.image
-        ? visualsHandler(deps.db, deps.storage, p.stock ?? [], p.image, p.fetch)
-        : unavailable("visuals", "not configured (set PEXELS_API_KEY or an image provider)"),
+    script: async (ctx) => {
+      const p = await resolve(ctx.ownerId);
+      if (!p.llm) throw new Error(NEEDS_KEY.llm);
+      return scriptHandler(deps.db, p.llm)(ctx);
+    },
+    voice: async (ctx) => {
+      const p = await resolve(ctx.ownerId);
+      if (!p.tts) throw new Error(NEEDS_KEY.tts);
+      return voiceHandler(deps.db, p.tts, deps.storage)(ctx);
+    },
+    visuals: async (ctx) => {
+      const p = await resolve(ctx.ownerId);
+      if (!(p.stock?.length ?? 0) && !p.image) throw new Error(NEEDS_KEY.visuals);
+      return visualsHandler(deps.db, deps.storage, p.stock ?? [], p.image, p.fetch)(ctx);
+    },
     render: renderHandler(deps.storage, deps.db),
     publish: unavailable("publish", "not implemented yet"),
     trends: unavailable("trends", "not implemented yet"),
