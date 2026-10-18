@@ -11,7 +11,8 @@ The full plan, roadmap and backlog live in [docs/business-plan.md](docs/business
 2. Branch: `agent/<ticket-id>-<short-slug>` (e.g. `agent/E0-02-core-contracts`) from the latest default branch.
 3. Build exactly what the ticket says, inside its **Touches** paths. Anything else you notice becomes a new issue labelled `agent-proposed`.
 4. Open a PR using the template, titled `<ticket-id>: <title>`, body containing `Closes #<issue>` and the real test output.
-5. **Never merge. Never push to `master`. One ticket per PR.** The owner (@davidly29) reviews and merges.
+5. **Never merge. Never push to `master`.** The owner (@davidly29) and team review and merge. A PR may bundle several
+   related tickets (owner decision, 2026-10-18): list each ticket with `Closes #n` and show its acceptance evidence.
 6. Stop and ask instead of guessing: if acceptance criteria conflict, are ambiguous, or the work needs a product, pricing,
    billing, legal, rights or platform-policy decision, comment on the issue with the question and options, label it
    `needs-human`, and stop. If you're stuck on tests, push the branch, open a **draft** PR explaining the blocker, and label the issue `blocked`.
@@ -22,7 +23,8 @@ The full plan, roadmap and backlog live in [docs/business-plan.md](docs/business
   (with ownership attestation), the user's own channel via official APIs, licensed stock APIs, and AI providers.
 - Never commit secrets, API keys, tokens or `.env` files. Tests use fake providers; no real network calls in tests.
 - Keep the default branch green. If CI is red on the default branch, fix that first (as its own PR).
-- Prefer small PRs (< ~600 changed lines excluding lockfiles and fixtures). Split a ticket into sub-PRs if needed and say so on the issue.
+- Batch PRs are welcome when tickets belong together (e.g. a sprint's backend). Keep each PR reviewable: group commits per ticket
+  and give the PR description one section per ticket.
 
 ## Working agreement (from the business plan)
 
