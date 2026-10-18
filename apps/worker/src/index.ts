@@ -9,3 +9,11 @@ export { visualsHandler, type VisualsInput } from "./visuals";
 export { productionFailureListener, setProject, withProduction, type ProductionChain } from "./chain";
 export { NEEDS_KEY } from "./worker";
 export { loadUserKeys, userKeyResolver } from "./keys";
+export {
+  channelAccessToken,
+  channelAad,
+  ChannelError,
+  connectYouTubeChannel,
+  disconnectChannel,
+} from "./channels";
+export { publishHandler, PublishRefused, requeueHeldPublishes, type PublishInput } from "./publish";
