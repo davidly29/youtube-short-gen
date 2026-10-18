@@ -50,6 +50,13 @@
       "when": 1792358049998,
       "tag": "0006_user_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792359734414,
+      "tag": "0007_youtube_publishing",
+      "breakpoints": true
     }
   ]
 }

@@ -150,6 +150,7 @@ describe("round trips validate against the contracts", () => {
       platform: "youtube",
       channelId: "ch_1",
       videoAssetId: SEED.assetIds[0],
+      idempotencyKey: `publish:${SEED.assetIds[0]}:ch_1`,
       request,
     });
     const row = await h.db.query.publishRecords.findFirst({ where: eq(publishRecords.id, "pub_1") });
