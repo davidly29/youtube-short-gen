@@ -1,2 +1,8 @@
-/** @shortloop/db: Drizzle schema and migrations */
+/** @shortloop/db: Drizzle schema, migrations, and Postgres/PGlite clients. */
 export const PACKAGE_NAME = "@shortloop/db" as const;
+
+export * as schema from "./schema";
+export { defaultDatabaseUrl, MIGRATIONS_FOLDER, openDb, type Db, type DbHandle } from "./client";
+export { toAsset, toJob, toPublishRequest, toScript, toTimeline } from "./mappers";
+export { balance, type CreditUnit } from "./ledger";
+export { seed, SEED } from "./seed";
