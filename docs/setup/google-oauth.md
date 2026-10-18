@@ -18,8 +18,9 @@ ShortLoop uses one Google OAuth client for two things: **connecting YouTube chan
 
 Notes
 
-- Default API quota is 10,000 units/day per Google project and an upload costs about 1,600 units, so expect roughly
-  **6 uploads a day** until the quota extension (H-08) is granted. Set `YOUTUBE_DAILY_UPLOAD_LIMIT=6` on `web` to
-  match. Extra posts wait for the next window (midnight Pacific) and go out automatically.
+- Uploads (`videos.insert`) have their own default quota bucket of about **100 per day per Google project**, separate
+  from the 10,000-unit pool for other calls (check your project's quota page in Cloud Console). `YOUTUBE_DAILY_UPLOAD_LIMIT`
+  (default 100) should match it. Extra posts wait for the next window (midnight Pacific) and go out automatically.
+  A channel can also hit YouTube's own per-channel upload limit (`uploadLimitExceeded`); those posts wait the same way.
 - Uploads from unverified apps may be locked as private by YouTube until the app passes Google's audit (H-08).
 - Before public launch, submit the consent screen for verification (sensitive scopes).

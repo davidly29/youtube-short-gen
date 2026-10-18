@@ -26,7 +26,7 @@ Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set
 | `RAILPACK_DEPLOY_APT_PACKAGES` | `ffmpeg fonts-dejavu-core` (rendering needs FFmpeg in the runtime image)                      |
 | `SHORTLOOP_SECRETS_KEY`        | random, set in Railway only; encrypts users' own API keys (ADR 0006)                          |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | Google OAuth client for YouTube publishing + Google sign-in; see `docs/setup/google-oauth.md` |
-| `YOUTUBE_DAILY_UPLOAD_LIMIT`   | uploads per Pacific day before holding posts (default 100; set to ~6 on default quota)        |
+| `YOUTUBE_DAILY_UPLOAD_LIMIT`   | uploads per Pacific day before holding posts (default 100, YouTube's default upload bucket)   |
 | `SHORTLOOP_SHARED_KEYS`        | unset by default; `1` shares the operator's env AI keys with every user                       |
 
 Users add their own AI keys in Settings → API keys (ADR 0006); the operator pays only for free defaults.
