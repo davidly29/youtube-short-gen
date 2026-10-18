@@ -8,6 +8,9 @@ export const Licence = z.object({
   provider: z.string().min(1).optional(),
   licenceUrl: z.url().optional(),
   attribution: z.string().min(1).optional(),
+  /** AI-generated media: the model and full prompt used (E5-03). */
+  model: z.string().min(1).optional(),
+  prompt: z.string().min(1).optional(),
   /** Set when the user ticked "I own or have rights to this media" (E2-01). */
   attestedByUserAt: IsoDateTime.optional(),
 });
