@@ -13,9 +13,11 @@ labels: agent-proposed
 **Interface:** <function signatures, routes, Zod types, events>
 
 **Build:**
+
 1. <step>
 
 **Acceptance:**
+
 - [ ] <observable, testable statement>
 
 **Test:** `<exact command>`

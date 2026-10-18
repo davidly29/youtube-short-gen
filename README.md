@@ -3,12 +3,12 @@
 Original-content Shorts studio: turn a rising trend into a published, monetisable 9:16 video using only rights-clean inputs
 (your own footage, AI-generated visuals, licensed stock, synthetic voice). Delivered as a web app and an MCP server.
 
-| Where | What |
-| --- | --- |
+| Where                                          | What                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
 | [docs/business-plan.md](docs/business-plan.md) | Business plan, executive roadmap, sprint plan, agent working agreement, full backlog |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Backlog in dependency order, linked to GitHub issues |
-| [AGENTS.md](AGENTS.md) | How agents and humans pick up, build and hand over work |
-| [poc/opengen-mcp](poc/opengen-mcp) | Working Python proof of concept (local video MCP server), reference only |
+| [docs/ROADMAP.md](docs/ROADMAP.md)             | Backlog in dependency order, linked to GitHub issues                                 |
+| [AGENTS.md](AGENTS.md)                         | How agents and humans pick up, build and hand over work                              |
+| [poc/opengen-mcp](poc/opengen-mcp)             | Working Python proof of concept (local video MCP server), reference only             |
 
 ## Status
 

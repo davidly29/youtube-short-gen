@@ -30,19 +30,19 @@ One TypeScript monorepo, strict contracts in a shared package, and tickets small
 
 **Stack (decided; change only by ADR)**
 
-| Concern | Choice |
-| --- | --- |
-| Monorepo | pnpm workspaces + Turborepo, Node 22, TypeScript strict |
-| Web app | Next.js (App Router), Tailwind, shadcn/ui |
-| API | Next.js route handlers + tRPC for the app; REST (OpenAPI) for the public API |
-| Database | Postgres + Drizzle ORM; migrations in `packages/db` |
-| Jobs | BullMQ on Redis; one queue per pipeline stage |
-| Media | FFmpeg in worker containers; Remotion for caption/compose templates |
-| Storage | S3-compatible (Cloudflare R2), signed URLs only |
-| AI providers | Behind `packages/providers` adapters: LLM, TTS, image, video, stock, ASR |
-| Auth / billing | Better Auth (email + Google) · Stripe Billing with metered credits |
-| MCP | `@modelcontextprotocol/sdk`, Streamable HTTP, OAuth 2.1 |
-| Tests | Vitest (unit), Playwright (e2e), golden-file render tests |
+| Concern        | Choice                                                                       |
+| -------------- | ---------------------------------------------------------------------------- |
+| Monorepo       | pnpm workspaces + Turborepo, Node 22, TypeScript strict                      |
+| Web app        | Next.js (App Router), Tailwind, shadcn/ui                                    |
+| API            | Next.js route handlers + tRPC for the app; REST (OpenAPI) for the public API |
+| Database       | Postgres + Drizzle ORM; migrations in `packages/db`                          |
+| Jobs           | BullMQ on Redis; one queue per pipeline stage                                |
+| Media          | FFmpeg in worker containers; Remotion for caption/compose templates          |
+| Storage        | S3-compatible (Cloudflare R2), signed URLs only                              |
+| AI providers   | Behind `packages/providers` adapters: LLM, TTS, image, video, stock, ASR     |
+| Auth / billing | Better Auth (email + Google) · Stripe Billing with metered credits           |
+| MCP            | `@modelcontextprotocol/sdk`, Streamable HTTP, OAuth 2.1                      |
+| Tests          | Vitest (unit), Playwright (e2e), golden-file render tests                    |
 
 **Repo layout**
 
@@ -66,15 +66,17 @@ AGENTS.md         This agreement
 
 ```markdown
 ### <ID> <Title>
+
 Intent: <one sentence on the user/business outcome>
 Depends on: <ticket IDs or none>
 Touches: <paths an agent may create or edit>
 Interface: <function signatures, routes, Zod types, events>
 Build: <numbered steps, no ambiguity>
 Acceptance:
+
 - [ ] <observable, testable statement>
-Test: <exact command, e.g. pnpm -F worker test render>
-Out of scope: <what NOT to build>
+      Test: <exact command, e.g. pnpm -F worker test render>
+      Out of scope: <what NOT to build>
 ```
 
 **Definition of done (agents check all before opening a PR)**
@@ -84,7 +86,7 @@ Out of scope: <what NOT to build>
 - [ ] External calls go through `packages/providers` with a fake used in tests; no real API keys in tests
 - [ ] Schema changes come with a Drizzle migration and updated Zod contract
 - [ ] PR description restates the intent, lists files touched, and pastes the test output
-- [ ] Edits stay inside the ticket's *Touches* list; anything else becomes a new ticket
+- [ ] Edits stay inside the ticket's _Touches_ list; anything else becomes a new ticket
 
 **Rules for agents**
 
