@@ -30,8 +30,16 @@ async function build() {
     emailAndPassword: { enabled: true, minPasswordLength: 8, autoSignIn: true },
     // On by default in production; e2e turns it off because every test signs up a fresh user.
     rateLimit: { enabled: process.env.AUTH_RATE_LIMIT !== "off" },
+    // Railway's edge proxy sets these; without them every visitor shares one rate-limit bucket.
+    advanced: {
+      ipAddress: {
+        ipAddressHeaders: (process.env.AUTH_IP_HEADERS ?? "x-real-ip,x-forwarded-for")
+          .split(",")
+          .map((h) => h.trim()),
+      },
+      database: { generateId: () => `usr_${crypto.randomUUID()}` },
+    },
     socialProviders: google,
-    advanced: { database: { generateId: () => `usr_${crypto.randomUUID()}` } },
     databaseHooks: {
       user: {
         create: {
