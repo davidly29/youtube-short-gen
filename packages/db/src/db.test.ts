@@ -47,12 +47,15 @@ describe("migrations", () => {
       "auth_accounts",
       "auth_sessions",
       "auth_verifications",
+      "billing_events",
       "channels",
+      "credit_grants",
       "credit_ledger",
       "jobs",
       "projects",
       "publish_records",
       "scripts",
+      "subscriptions",
       "timelines",
       "user_api_keys",
       "users",
@@ -62,7 +65,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(14);
+    expect(await tableNames()).toHaveLength(17);
   });
 });
 

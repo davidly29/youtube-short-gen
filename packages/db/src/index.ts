@@ -8,4 +8,4 @@ export { balance, type CreditUnit } from "./ledger";
 export { seed, SEED } from "./seed";
 
 /** Query helpers re-exported so every package uses this package's drizzle-orm instance. */
-export { and, asc, desc, eq, inArray, isNull, ne, or, sql, sum } from "drizzle-orm";
+export { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or, sql, sum } from "drizzle-orm";
