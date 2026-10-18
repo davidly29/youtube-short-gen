@@ -34,6 +34,8 @@ export const Asset = z.object({
   source: AssetSource,
   licence: Licence,
   storageKey: z.string().min(1),
+  /** Human label (an upload's file name or the user's description); used to match visuals to beats. */
+  title: z.string().max(200).optional(),
   durationMs: Ms.optional(),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),

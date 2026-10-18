@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Asset, type CaptionStyleId, type CaptionWord } from "@shortloop/contracts";
-import { schema, eq, inArray, type Db } from "@shortloop/db";
+import { schema, eq, inArray, type Db, toAsset as dbToAsset } from "@shortloop/db";
 import {
   assembleTimeline,
   beatSpans,
@@ -27,14 +27,7 @@ export interface VisualsInput {
   imageStyle?: string;
 }
 
-const toContract = (r: typeof schema.assets.$inferSelect): Asset =>
-  Asset.parse({
-    ...r,
-    durationMs: r.durationMs ?? undefined,
-    width: r.width ?? undefined,
-    height: r.height ?? undefined,
-    createdAt: new Date(r.createdAt).toISOString(),
-  });
+const toContract = (r: typeof schema.assets.$inferSelect): Asset => Asset.parse(dbToAsset(r));
 
 async function saveAsset(db: Db, a: Asset): Promise<void> {
   await db.insert(schema.assets).values({
@@ -81,7 +74,7 @@ export function visualsHandler(
         .map((a) => ({
           asset: toContract(a),
           origin: "library" as const,
-          description: `${a.id} ${a.licence.prompt ?? ""}`,
+          description: `${a.title ?? ""} ${a.licence.prompt ?? ""}`,
         }));
       for (const provider of stock) {
         try {

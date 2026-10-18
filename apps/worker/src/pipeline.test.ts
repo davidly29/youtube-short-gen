@@ -75,7 +75,7 @@ async function run(
 }
 
 describe("topic to finished Short (fakes for every provider)", () => {
-  it("script -> voice -> visuals (stock) -> render with captions, manifest, thumbnail and settled credits", async () => {
+  it("script -> production chain (voice -> visuals -> render) with captions, manifest, thumbnail, credit charged", async () => {
     const jobs = worker(true);
     const s = await run(
       jobs,
@@ -89,29 +89,21 @@ describe("topic to finished Short (fakes for every provider)", () => {
       },
       "s",
     );
-    const v = await run(jobs, "voice", { scriptId: s.output.scriptId, voiceId: "fake-voice" }, "v");
-    const vis = await run(
-      jobs,
-      "visuals",
+    // "Make my Short": the voice stage reserves one credit, then the chain runs visuals and render by itself.
+    const voiceJob = await jobs.enqueue(
+      "voice",
       {
         scriptId: s.output.scriptId,
-        voice: {
-          audioAssetId: v.output.audioAssetId,
-          durationMs: v.output.durationMs,
-          words: v.output.words,
-        },
-        captionStyle: "bold-pop",
+        voiceId: "fake-voice",
+        chain: { projectId: SEED.projectId, captionStyle: "bold-pop" },
       },
-      "vis",
+      { idempotencyKey: "v", ownerId: SEED.userId },
     );
-    const renderJob = await jobs.enqueue(
-      "render",
-      { timelineId: vis.output.timelineId },
-      { idempotencyKey: "r", ownerId: SEED.userId },
-    );
-    await reserve(h.db, SEED.userId, { short: 1 }, renderJob.id);
     await driver.drain();
-    const r = await jobs.get(renderJob.id);
+    const project = await h.db.query.projects.findFirst({ where: eq(schema.projects.id, SEED.projectId) });
+    expect(project?.status, project?.error ?? "").toBe("ready");
+    const renderJob = await h.db.query.jobs.findFirst({ where: eq(schema.jobs.type, "render") });
+    const r = await jobs.get(renderJob?.id ?? "");
     expect(r?.status, r?.error).toBe("succeeded");
     const out = r?.output as {
       videoAssetId: string;
@@ -129,8 +121,9 @@ describe("topic to finished Short (fakes for every provider)", () => {
     expect(manifest.entries.map((e) => e.source).sort()).toContain("stock");
     const render = await h.db.query.assets.findFirst({ where: eq(schema.assets.id, out.videoAssetId) });
     expect(render?.source).toBe("render");
+    expect(project?.renderAssetId).toBe(out.videoAssetId);
     const ledger = await h.db.query.creditLedger.findMany({
-      where: eq(schema.creditLedger.jobId, renderJob.id),
+      where: eq(schema.creditLedger.jobId, voiceJob.id),
     });
     expect(ledger.map((l) => l.reason)).toEqual(["reserve:short"]); // charged 1, nothing to release
   }, 180_000);

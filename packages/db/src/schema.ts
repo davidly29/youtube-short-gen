@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -43,7 +44,53 @@ export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name"),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  image: text("image"),
   createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+});
+
+// ---- Better Auth tables (sessions, linked accounts incl. password hashes, verification tokens)
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+
+export const authSessions = pgTable("auth_sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: ts("expires_at").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const authAccounts = pgTable("auth_accounts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: ts("access_token_expires_at"),
+  refreshTokenExpiresAt: ts("refresh_token_expires_at"),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const authVerifications = pgTable("auth_verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
 /** A connected publishing account (e.g. a YouTube channel). OAuth tokens arrive in E8-01. */
@@ -62,6 +109,27 @@ export const channels = pgTable(
   (t) => [uniqueIndex("channels_platform_external_id").on(t.platform, t.externalId)],
 );
 
+export const projectStatus = pgEnum("project_status", [
+  "draft",
+  "scripting",
+  "script_ready",
+  "producing",
+  "ready",
+  "approved",
+  "failed",
+]);
+
+/** User choices that drive production (voice, captions, look, length). */
+export interface ProjectSettings {
+  targetSeconds?: 30 | 45 | 60;
+  tone?: string;
+  language?: string;
+  voiceId?: string;
+  captionStyle?: string;
+  imageStyle?: string;
+  angle?: string;
+}
+
 export const projects = pgTable(
   "projects",
   {
@@ -70,7 +138,17 @@ export const projects = pgTable(
       .notNull()
       .references(() => users.id),
     title: text("title").notNull(),
+    topic: text("topic"),
+    status: projectStatus("status").notNull().default("draft"),
+    settings: jsonb("settings").$type<ProjectSettings>().notNull().default({}),
+    scriptId: text("script_id"),
+    timelineId: text("timeline_id"),
+    renderAssetId: text("render_asset_id"),
+    lastJobId: text("last_job_id"),
+    error: text("error"),
+    approvedAt: timestamp("approved_at", { withTimezone: true, mode: "string" }),
     createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
   (t) => [index("projects_owner").on(t.ownerId)],
 );
@@ -86,6 +164,7 @@ export const assets = pgTable(
     source: assetSource("source").notNull(),
     licence: jsonb("licence").$type<Licence>().notNull(),
     storageKey: text("storage_key").notNull(),
+    title: text("title"),
     durationMs: integer("duration_ms"),
     width: integer("width"),
     height: integer("height"),

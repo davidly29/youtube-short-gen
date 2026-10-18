@@ -63,3 +63,46 @@ export async function normaliseLoudness(inPath: string, outPath: string, target 
     outPath,
   ]);
 }
+
+export interface MediaProbe {
+  /** Container duration; undefined for still images. */
+  durationMs?: number;
+  width?: number;
+  height?: number;
+  hasVideo: boolean;
+  hasAudio: boolean;
+}
+
+/** Read duration, frame size and stream types with ffprobe. Rejects on files ffprobe can't parse. */
+export function probeMedia(path: string): Promise<MediaProbe> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("ffprobe", ["-v", "error", "-show_streams", "-show_format", "-of", "json", path]);
+    let out = "";
+    child.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) return reject(new Error(`ffprobe could not read this file (${code})`));
+      const j = JSON.parse(out) as {
+        streams?: {
+          codec_type?: string;
+          width?: number;
+          height?: number;
+          disposition?: { attached_pic?: number };
+        }[];
+        format?: { duration?: string; format_name?: string };
+      };
+      const streams = j.streams ?? [];
+      const video = streams.find((s) => s.codec_type === "video" && !s.disposition?.attached_pic);
+      const still = /image2|png_pipe|jpeg_pipe|mjpeg/.test(j.format?.format_name ?? "");
+      const seconds = Number(j.format?.duration);
+      resolve({
+        durationMs:
+          !still && Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : undefined,
+        width: video?.width,
+        height: video?.height,
+        hasVideo: Boolean(video),
+        hasAudio: streams.some((s) => s.codec_type === "audio"),
+      });
+    });
+  });
+}

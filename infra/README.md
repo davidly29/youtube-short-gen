@@ -10,3 +10,24 @@ Project **shortloop** on Railway, environment `staging` (ADR 0003).
 
 Storage env: `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (Cloudflare R2). Without them the
 worker writes to `STORAGE_DIR` (fine for a single-container smoke test, not for web + worker together).
+
+## Staging today (single web service, jobs in-process)
+
+Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set). Staging has:
+
+| Variable on `web`              | Value                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `DATABASE_URL`                 | `${{Postgres.DATABASE_URL}}`                                             |
+| `S3_BUCKET` / `S3_ENDPOINT`    | `${{media.BUCKET}}` / `${{media.ENDPOINT}}` (Railway bucket `media`)     |
+| `S3_REGION`                    | `${{media.REGION}}`                                                      |
+| `S3_ACCESS_KEY_ID` / `..._KEY` | `${{media.ACCESS_KEY_ID}}` / `${{media.SECRET_ACCESS_KEY}}`              |
+| `BETTER_AUTH_URL`              | `https://web-staging-0f0b5.up.railway.app`                               |
+| `BETTER_AUTH_SECRET`           | random, set in Railway only                                              |
+| `RAILPACK_DEPLOY_APT_PACKAGES` | `ffmpeg fonts-dejavu-core` (rendering needs FFmpeg in the runtime image) |
+| `ANTHROPIC_API_KEY`            | optional: enables "Write it with AI" (set by the owner in Railway)       |
+| `PEXELS_API_KEY`               | optional: stock visuals; without it visuals are AI images                |
+
+Browser uploads go to the app's signed `/api/uploads/put/...` route, which streams to the bucket, so the bucket
+needs no CORS rule. Media is served to the browser with short-lived presigned GET URLs.
+
+To split out the worker later: add Redis, set `REDIS_URL` on both `web` and `worker`, deploy `infra/worker.Dockerfile`.

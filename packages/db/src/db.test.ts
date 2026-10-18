@@ -44,6 +44,9 @@ describe("migrations", () => {
     expect(await tableNames()).toEqual([
       "assets",
       "audit_events",
+      "auth_accounts",
+      "auth_sessions",
+      "auth_verifications",
       "channels",
       "credit_ledger",
       "jobs",
@@ -58,7 +61,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(10);
+    expect(await tableNames()).toHaveLength(13);
   });
 });
 

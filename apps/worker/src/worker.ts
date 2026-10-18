@@ -8,6 +8,7 @@ import {
   type QueueDriver,
 } from "@shortloop/pipeline";
 import type { ImageGen, LLM, StockProvider, Storage, TTS } from "@shortloop/providers";
+import { productionFailureListener, withProduction } from "./chain";
 import { renderHandler } from "./render";
 import { scriptHandler } from "./script";
 import { visualsHandler } from "./visuals";
@@ -54,6 +55,14 @@ export function createWorker(deps: WorkerDeps): JobService {
     publish: unavailable("publish", "not implemented yet"),
     trends: unavailable("trends", "not implemented yet"),
   };
-  for (const type of JOB_TYPES) jobs.register(type, handlers[type]);
+  const chained: Record<JobType, JobHandler> = {
+    ...handlers,
+    script: withProduction(deps.db, () => jobs, "script", handlers.script),
+    voice: withProduction(deps.db, () => jobs, "voice", handlers.voice),
+    visuals: withProduction(deps.db, () => jobs, "visuals", handlers.visuals),
+    render: withProduction(deps.db, () => jobs, "render", handlers.render),
+  };
+  for (const type of JOB_TYPES) jobs.register(type, chained[type]);
+  jobs.onFinalFailure(productionFailureListener(deps.db));
   return jobs;
 }
