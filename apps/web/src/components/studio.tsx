@@ -683,7 +683,7 @@ function CaptionsEditor({ view, onChanged }: { view: View; onChanged: () => Prom
                   ? "border-warn/40 bg-warn/5"
                   : "border-line bg-white",
             )}
-            style={{ width: `${Math.max(2, (edits[i] ?? w.text).length) + 1}ch` }}
+            style={{ width: `calc(${Math.max(2, (edits[i] ?? w.text).length)}ch + 1.25rem)` }}
             value={edits[i] ?? w.text}
             onChange={(e) => setEdits({ ...edits, [i]: e.target.value })}
           />
