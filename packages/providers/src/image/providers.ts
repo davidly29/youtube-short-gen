@@ -1,0 +1,136 @@
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { Asset } from "@shortloop/contracts";
+import type { Storage } from "../storage";
+import { join } from "node:path";
+import { runFfmpeg } from "../media/ffmpeg";
+import {
+  checkImagePrompt,
+  fullPrompt,
+  generationSize,
+  ImagePromptRejected,
+  type ImageGen,
+  type ImageRequest,
+  type ImageResult,
+} from "./image";
+
+abstract class BaseImageGen implements ImageGen {
+  abstract readonly provider: string;
+  abstract readonly model: string;
+  protected abstract render(prompt: string, req: ImageRequest): Promise<Buffer>;
+  protected readonly ext: string = "jpg";
+
+  async generate(req: ImageRequest): Promise<ImageResult> {
+    const verdict = checkImagePrompt(req.prompt);
+    if (!verdict.ok) throw new ImagePromptRejected(verdict.reason);
+    const prompt = fullPrompt(req.prompt, req.style);
+    const path = join(req.outDir, `${randomUUID()}.${this.ext}`);
+    await writeFile(path, await this.render(prompt, req));
+    return { path, provider: this.provider, model: this.model, prompt };
+  }
+}
+
+/** Pollinations: free, no key, Flux-based. Rate limited; fine for dev and early beta. */
+export class PollinationsImage extends BaseImageGen {
+  readonly provider = "pollinations";
+  readonly model = "flux";
+  constructor(private readonly fetchImpl: typeof fetch = fetch) {
+    super();
+  }
+  protected async render(prompt: string, req: ImageRequest): Promise<Buffer> {
+    const { width, height } = generationSize(req.aspect);
+    const url = new URL(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`);
+    url.search = new URLSearchParams({
+      width: String(width),
+      height: String(height),
+      model: this.model,
+      nologo: "true",
+      seed: String(req.seed ?? Math.floor(Math.random() * 2 ** 31)),
+    }).toString();
+    const res = await this.fetchImpl(url);
+    if (!res.ok) throw new Error(`Pollinations ${res.status}`);
+    return Buffer.from(await res.arrayBuffer());
+  }
+}
+
+/** fal.ai (FAL_KEY), Flux schnell by default. */
+export class FalImage extends BaseImageGen {
+  readonly provider = "fal";
+  constructor(
+    private readonly key: string,
+    readonly model = "fal-ai/flux/schnell",
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {
+    super();
+  }
+  protected async render(prompt: string, req: ImageRequest): Promise<Buffer> {
+    const res = await this.fetchImpl(`https://fal.run/${this.model}`, {
+      method: "POST",
+      headers: { authorization: `Key ${this.key}`, "content-type": "application/json" },
+      body: JSON.stringify({ prompt, image_size: generationSize(req.aspect), num_images: 1, seed: req.seed }),
+    });
+    if (!res.ok) throw new Error(`fal ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = (await res.json()) as { images: { url: string }[] };
+    const img = data.images[0];
+    if (!img) throw new Error("fal returned no image");
+    const file = await this.fetchImpl(img.url);
+    return Buffer.from(await file.arrayBuffer());
+  }
+}
+
+/** Offline image for tests: a colour derived from the prompt hash. */
+export class FakeImage extends BaseImageGen {
+  readonly provider = "fake";
+  readonly model = "fake-1";
+  protected override readonly ext = "png";
+  protected async render(prompt: string, req: ImageRequest): Promise<Buffer> {
+    const { width, height } = generationSize(req.aspect);
+    const colour = createHash("md5").update(prompt).digest("hex").slice(0, 6);
+    const tmp = join(req.outDir, `${randomUUID()}.png`);
+    await runFfmpeg(["-f", "lavfi", "-i", `color=c=0x${colour}:s=${width}x${height}`, "-frames:v", "1", tmp]);
+    return readFile(tmp);
+  }
+}
+
+/** IMAGE_PROVIDER=fal|pollinations|fake. Default: fal with a key, else Pollinations. */
+export function imageFromEnv(env: NodeJS.ProcessEnv = process.env): ImageGen {
+  const p = env.IMAGE_PROVIDER ?? (env.FAL_KEY ? "fal" : "pollinations");
+  if (p === "fal") {
+    if (!env.FAL_KEY) throw new Error("IMAGE_PROVIDER=fal needs FAL_KEY");
+    return new FalImage(env.FAL_KEY, env.FAL_IMAGE_MODEL);
+  }
+  if (p === "fake") return new FakeImage();
+  return new PollinationsImage();
+}
+
+/** Generate an image and store it as an AI-generated Asset with provider, model and prompt in its licence. */
+export async function generateImageAsset(
+  gen: ImageGen,
+  storage: Storage,
+  ownerId: string,
+  req: Omit<ImageRequest, "outDir">,
+): Promise<Asset> {
+  const dir = await mkdtemp(join(tmpdir(), "img-"));
+  try {
+    const r = await gen.generate({ ...req, outDir: dir });
+    const ext = r.path.split(".").pop() ?? "jpg";
+    const id = `ast_${randomUUID()}`;
+    const storageKey = `assets/${ownerId}/${id}.${ext}`;
+    await storage.putFile(storageKey, r.path, ext === "png" ? "image/png" : "image/jpeg");
+    const size = generationSize(req.aspect);
+    return Asset.parse({
+      id,
+      ownerId,
+      kind: "image",
+      source: "ai_generated",
+      licence: { type: "ai_generated", provider: r.provider, model: r.model, prompt: r.prompt },
+      storageKey,
+      width: size.width,
+      height: size.height,
+      createdAt: new Date().toISOString(),
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
