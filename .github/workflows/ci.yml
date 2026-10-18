@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The TypeScript app job is added by ticket E0-01 together with package.json.
+  poc:
+    name: POC (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: poc/opengen-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Test
+        env:
+          OPENGEN_HOME: ${{ runner.temp }}/opengen
+        run: pytest -q
+

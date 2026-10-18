@@ -5,6 +5,7 @@ media engine. Defaults are free and run locally; paid providers are optional.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import tempfile
 import threading
@@ -125,7 +126,9 @@ def import_media(path_or_url: str, owned_or_licensed: bool) -> dict[str, Any]:
         if any(host == h or host.endswith("." + h) for h in BLOCKED_HOSTS):
             raise ValueError(f"Downloading from {host} is not supported. Export your own video from the platform and import the file.")
         suffix = Path(urllib.parse.urlparse(path_or_url).path).suffix or ".bin"
-        tmp = Path(tempfile.mkstemp(suffix=suffix, dir=settings.work_dir)[1])
+        fd, tmp_name = tempfile.mkstemp(suffix=suffix, dir=settings.work_dir)
+        os.close(fd)  # Windows can't delete a file that still has an open handle
+        tmp = Path(tmp_name)
         with httpx.stream("GET", path_or_url, follow_redirects=True, timeout=300) as r:
             r.raise_for_status()
             with tmp.open("wb") as f:
