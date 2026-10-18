@@ -1,2 +1,4 @@
-/** @shortloop/providers: Adapters for LLM, TTS, image, video, stock and ASR providers, each with a fake */
+/** @shortloop/providers: every external service behind an interface, each with a fake for tests. */
 export const PACKAGE_NAME = "@shortloop/providers" as const;
+
+export * from "./storage";

@@ -10,6 +10,17 @@
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@shortloop/contracts": "workspace:*",
+    "@shortloop/db": "workspace:*",
+    "@shortloop/pipeline": "workspace:*",
+    "@shortloop/providers": "workspace:*",
+    "@shortloop/render": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
