@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { redeemCodeAction } from "../../app/(app)/actions";
 import { authClient, oauthContinueUrl } from "../lib/auth-client";
 import { Button, Card, ErrorText, Input, Label } from "./ui";
 
@@ -38,6 +39,16 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       window.location.href = next;
       return;
     }
+    const accessCode = mode === "sign-up" ? String(form.get("accessCode") ?? "").trim() : "";
+    if (accessCode) {
+      const r = await redeemCodeAction(accessCode);
+      if (!r.ok) {
+        // The account exists either way; let them retry the code on the Billing page.
+        router.push(`/billing?error=${encodeURIComponent(r.error)}`);
+        router.refresh();
+        return;
+      }
+    }
     router.push("/projects");
     router.refresh();
   }
@@ -70,6 +81,17 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             required
           />
         </div>
+        {mode === "sign-up" && (
+          <div>
+            <Label htmlFor="access-code">Beta access code (optional)</Label>
+            <Input
+              id="access-code"
+              name="accessCode"
+              autoComplete="off"
+              placeholder="If you were given one"
+            />
+          </div>
+        )}
         <ErrorText>{error}</ErrorText>
         <Button type="submit" className="w-full" loading={loading}>
           {mode === "sign-up" ? "Create account" : "Sign in"}

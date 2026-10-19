@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redeemAccessCode } from "../../src/server/access";
 import { requireUser } from "../../src/server/auth";
 import { disconnect } from "../../src/server/channels";
 import { deleteKey, saveKey } from "../../src/server/keys";
@@ -116,5 +117,11 @@ export async function publishAction(projectId: string, form: z.input<typeof Publ
     return publishShort(uid, projectId, form, view.aiDisclosureRequired);
   });
   revalidatePath(`/projects/${projectId}`);
+  return r;
+}
+
+export async function redeemCodeAction(code: string) {
+  const r = await wrap((uid) => redeemAccessCode(uid, code));
+  revalidatePath("/", "layout");
   return r;
 }

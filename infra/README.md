@@ -29,6 +29,8 @@ Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set
 | `YOUTUBE_DAILY_UPLOAD_LIMIT`                  | uploads per Pacific day before holding posts (default 100, YouTube's default upload bucket)   |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | paid plans; see `docs/setup/stripe.md` (billing is off until set)                             |
 | `STRIPE_PRICE_CREATOR` / `STRIPE_PRICE_PRO`   | Stripe price ids for the two plans                                                            |
+| `ADMIN_EMAILS`                                | admin accounts (unlimited, Admin page); see `docs/setup/access.md`                            |
+| `SHORTLOOP_ACCESS_CODES`                      | beta codes `CODE:maxUses`; first N redeemers get unlimited Shorts                             |
 | `SHORTLOOP_SHARED_KEYS`                       | unset by default; `1` shares the operator's env AI keys with every user                       |
 
 Users add their own AI keys in Settings → API keys (ADR 0006); the operator pays only for free defaults.

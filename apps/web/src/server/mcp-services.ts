@@ -3,6 +3,7 @@ import { and, balance, eq, schema } from "@shortloop/db";
 import { ToolUserError, type JobView, type ShortLoopServices } from "@shortloop/mcp";
 import { ZodError } from "zod";
 import { CAPTION_STYLES } from "../lib/captions";
+import { accessOf } from "./access";
 import { listChannels } from "./channels";
 import { UserError } from "./errors";
 import {
@@ -172,7 +173,7 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
         shorts: 1,
         ai_video_credits: needAi,
         balance: { shorts, ai_video_credits: ai },
-        affordable: shorts >= 1 && ai >= needAi,
+        affordable: (await accessOf(userId)).unlimited || (shorts >= 1 && ai >= needAi),
         note: "One Short credit per Short, whatever the length. Re-renders and visual swaps are free. AI usage runs on the user's own keys.",
       };
     },

@@ -3,7 +3,9 @@ import { Check, CheckCircle2, CreditCard } from "lucide-react";
 import { Badge, Card, ErrorText } from "../../../src/components/ui";
 import { cn } from "../../../src/lib/cn";
 import { requireUser } from "../../../src/server/auth";
+import { accessOf } from "../../../src/server/access";
 import { billingView } from "../../../src/server/billing";
+import { AccessCodeForm } from "../../../src/components/access-code-form";
 
 const date = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString([], { day: "numeric", month: "long", year: "numeric" }) : "";
@@ -14,7 +16,7 @@ export default async function BillingPage({
   searchParams: Promise<{ checkout?: string; error?: string }>;
 }) {
   const user = await requireUser();
-  const [v, q] = await Promise.all([billingView(user.id), searchParams]);
+  const [v, q, access] = await Promise.all([billingView(user.id), searchParams, accessOf(user.id)]);
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
@@ -40,8 +42,13 @@ export default async function BillingPage({
           <div>
             <p className="text-sm text-ink-soft">Current plan</p>
             <p className="mt-1 text-xl font-bold" data-testid="plan-name">
-              {v.plan?.name ?? "Free"}
+              {access.admin ? "Admin" : access.beta ? "Beta access" : (v.plan?.name ?? "Free")}
             </p>
+            {access.unlimited && (
+              <p className="mt-1 text-sm text-good" data-testid="unlimited">
+                Unlimited Shorts. Your AI usage still runs on your own keys.
+              </p>
+            )}
             {v.plan && v.periodEnd && (
               <p className="mt-1 text-sm text-ink-soft" data-testid="plan-renewal">
                 {v.cancelAtPeriodEnd
@@ -52,7 +59,8 @@ export default async function BillingPage({
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold" data-testid="billing-shorts">
-              {v.shorts} <span className="text-sm font-medium text-ink-soft">Shorts left</span>
+              {access.unlimited ? "∞" : v.shorts}{" "}
+              <span className="text-sm font-medium text-ink-soft">Shorts left</span>
             </p>
             {v.aiVideo > 0 && <p className="text-sm text-ink-soft">{v.aiVideo} AI-video credits</p>}
             {v.creditsExpireAt && (
@@ -73,6 +81,8 @@ export default async function BillingPage({
           </form>
         )}
       </Card>
+
+      {!access.unlimited && <AccessCodeForm />}
 
       {!v.enabled ? (
         <p className="text-sm text-ink-soft" data-testid="billing-off">

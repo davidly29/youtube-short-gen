@@ -17,6 +17,7 @@ import {
 } from "@shortloop/pipeline";
 import { generateImageAsset, importStock, type StockResult } from "@shortloop/providers";
 import { z } from "zod";
+import { accessOf } from "./access";
 import { listChannels } from "./channels";
 import { ownedUploads } from "./library";
 import { listPublishes } from "./publishing";
@@ -47,9 +48,13 @@ export async function listProjects(userId: string) {
 
 export async function credits(userId: string) {
   const { db } = await runtime();
+  const access = await accessOf(userId);
   return {
     shorts: await balance(db, userId, "short"),
     aiVideo: await balance(db, userId, "ai_video_credit"),
+    /** Admins and beta access-code holders: no credits needed. */
+    unlimited: access.unlimited,
+    admin: access.admin,
   };
 }
 
@@ -214,7 +219,9 @@ export async function startProduction(
   const rt = await runtime();
   const p = await ownProject(userId, projectId);
   if (!p.scriptId) throw new UserError("Save a script first.");
-  if ((await balance(rt.db, userId, "short")) < 1) throw new UserError("You're out of Short credits.");
+  if (!(await accessOf(userId)).unlimited && (await balance(rt.db, userId, "short")) < 1) {
+    throw new UserError("You're out of Short credits.");
+  }
   const libraryAssetIds = await ownedUploads(userId, s.libraryAssetIds ?? []);
   await rt.db
     .update(schema.projects)
