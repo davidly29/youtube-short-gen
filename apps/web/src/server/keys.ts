@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { ApiKeyInfo, ApiKeyProvider, SaveApiKey } from "@shortloop/contracts";
+import { ApiKeyInfo, ApiKeyProvider, ProviderRouting, SaveApiKey } from "@shortloop/contracts";
+import { managedAllowance } from "@shortloop/pipeline";
+import { loadRouting } from "@shortloop/worker";
 import { and, eq, schema } from "@shortloop/db";
 import { fakeVerifyApiKey, keyAad, last4, verifyApiKey } from "@shortloop/providers";
 import { UserError } from "./errors";
@@ -18,6 +20,9 @@ export async function listKeys(userId: string): Promise<ApiKeyInfo[]> {
       imageModel: r.imageModel ?? undefined,
       verifiedAt: r.verifiedAt ? new Date(r.verifiedAt).toISOString() : undefined,
       updatedAt: new Date(r.updatedAt).toISOString(),
+      lastOkAt: r.lastOkAt ? new Date(r.lastOkAt).toISOString() : undefined,
+      lastError: r.lastError ?? undefined,
+      unavailable: r.unavailable ?? [],
     }),
   );
 }
@@ -38,6 +43,9 @@ export async function saveKey(userId: string, input: unknown): Promise<ApiKeyInf
     imageModel: data.imageModel || null,
     verifiedAt: check.verified ? now : null,
     updatedAt: now,
+    // A new or re-saved key starts with a clean bill of health.
+    lastError: null,
+    unavailable: [],
   };
   await rt.db
     .insert(schema.userApiKeys)
@@ -63,4 +71,50 @@ export async function deleteKey(userId: string, provider: unknown): Promise<void
   await db
     .insert(schema.auditEvents)
     .values({ ownerId: userId, type: "api_key.deleted", subjectId: p, data: { provider: p } });
+}
+
+/** The user's routing choices: which provider does each job (ADR 0007). */
+export async function getRouting(userId: string): Promise<ProviderRouting> {
+  const { db } = await runtime();
+  return loadRouting(db, userId);
+}
+
+export async function saveRouting(userId: string, input: unknown): Promise<ProviderRouting> {
+  const parsed = ProviderRouting.safeParse(input);
+  if (!parsed.success) throw new UserError("That provider can't do this job.");
+  const r = parsed.data;
+  const { db } = await runtime();
+  const values = {
+    llm: r.llm ?? null,
+    image: r.image ?? null,
+    tts: r.tts ?? null,
+    updatedAt: new Date().toISOString(),
+  };
+  await db
+    .insert(schema.providerRouting)
+    .values({ ownerId: userId, ...values })
+    .onConflictDoUpdate({ target: schema.providerRouting.ownerId, set: values });
+  await db.insert(schema.auditEvents).values({
+    ownerId: userId,
+    type: "provider_routing.saved",
+    subjectId: userId,
+    data: { llm: r.llm ?? null, image: r.image ?? null, tts: r.tts ?? null },
+  });
+  return r;
+}
+
+/** Re-enable a job a key was marked unable to do (e.g. after turning on billing), and clear its last error. */
+export async function resetKeyHealth(userId: string, provider: unknown): Promise<void> {
+  const p = ApiKeyProvider.parse(provider);
+  const { db } = await runtime();
+  await db
+    .update(schema.userApiKeys)
+    .set({ unavailable: [], lastError: null })
+    .where(and(eq(schema.userApiKeys.ownerId, userId), eq(schema.userApiKeys.provider, p)));
+}
+
+/** ShortLoop AI on the user's plan: whether they have it, and this month's spend against their limit. */
+export async function shortloopAllowance(userId: string) {
+  const { db } = await runtime();
+  return managedAllowance(db, userId);
 }

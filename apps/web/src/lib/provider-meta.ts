@@ -17,7 +17,8 @@ export const PROVIDERS: ProviderMeta[] = [
     id: "gemini",
     name: "Google Gemini",
     uses: ["Scripts", "AI images"],
-    blurb: "One key for both scripts and images. Has a free tier.",
+    blurb:
+      "Scripts and (optionally) images. The free tier covers scripts only: Google gives free keys no image quota, so turn on billing before picking Gemini for images.",
     getKeyUrl: "https://aistudio.google.com/apikey",
     placeholder: "AIza…",
     textModel: DEFAULT_MODELS.gemini.text,

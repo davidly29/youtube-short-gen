@@ -55,4 +55,33 @@ test.describe("BYOK: users bring their own API keys", () => {
     await expect(other.getByTestId("in-use")).toContainText("Optional: add Pexels or Pixabay");
     await other.close();
   });
+
+  test("routing: images stay free until the user picks a key for them; the choice sticks", async ({
+    page,
+  }) => {
+    await signUp(page);
+    await addKey(page, "gemini", "test-gemini-secret-4321");
+    await expect(page.getByTestId("key-gemini-status")).toContainText("••••4321");
+    await page.reload();
+    const inUse = page.getByTestId("in-use");
+    await expect(inUse).toContainText("Free AI images (Pollinations)");
+    // No paid plan: ShortLoop AI isn't offered.
+    await expect(page.getByTestId("routing-llm").locator("option", { hasText: "ShortLoop AI" })).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("shortloop-allowance")).toHaveCount(0);
+
+    await page.getByTestId("routing-image").selectOption("gemini");
+    await page.getByTestId("routing-save").click();
+    await expect(page.getByTestId("routing-saved")).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId("routing-image")).toHaveValue("gemini");
+    await expect(inUse).not.toContainText("Free AI images");
+
+    await page.getByTestId("routing-image").selectOption("free");
+    await page.getByTestId("routing-save").click();
+    await expect(page.getByTestId("routing-saved")).toBeVisible();
+    await page.reload();
+    await expect(inUse).toContainText("Free AI images (Pollinations)");
+  });
 });
