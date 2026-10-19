@@ -44,11 +44,13 @@ export function Studio({
   initial,
   caps,
   creditsLeft,
+  unlimited = false,
   library,
 }: {
   initial: View;
   caps: Caps;
   creditsLeft: number;
+  unlimited?: boolean;
   library: LibraryItem[];
 }) {
   const router = useRouter();
@@ -102,6 +104,7 @@ export function Studio({
               view={view}
               caps={caps}
               creditsLeft={creditsLeft}
+              unlimited={unlimited}
               library={library}
               onStarted={async () => {
                 await refresh();
@@ -380,12 +383,14 @@ function StylePanel({
   view,
   caps,
   creditsLeft,
+  unlimited,
   library,
   onStarted,
 }: {
   view: View;
   caps: Caps;
   creditsLeft: number;
+  unlimited: boolean;
   library: LibraryItem[];
   onStarted: () => Promise<void>;
 }) {
@@ -488,13 +493,21 @@ function StylePanel({
       )}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
         <p className="text-sm text-ink-soft">
-          Uses <strong className="text-ink">1 Short credit</strong> · you have {creditsLeft}
+          {unlimited ? (
+            <>
+              <strong className="text-ink">Unlimited Shorts</strong> (beta access)
+            </>
+          ) : (
+            <>
+              Uses <strong className="text-ink">1 Short credit</strong> · you have {creditsLeft}
+            </>
+          )}
           {caps.stock.length === 0 && " · visuals will be AI-generated (no stock library connected)"}
         </p>
         <Button
           onClick={go}
           loading={loading}
-          disabled={creditsLeft < 1 || !voiceId}
+          disabled={(!unlimited && creditsLeft < 1) || !voiceId}
           data-testid="make-short"
         >
           <Wand2 className="size-4" aria-hidden /> Make my Short

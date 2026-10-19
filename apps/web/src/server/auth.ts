@@ -1,5 +1,5 @@
 import "server-only";
-import { schema } from "@shortloop/db";
+import { eq, schema } from "@shortloop/db";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
@@ -9,6 +9,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { syncAdmin } from "./access";
 import { runtime } from "./runtime";
 
 export const FREE_SHORTS_ON_SIGNUP = 5;
@@ -74,6 +75,16 @@ async function build() {
             await db
               .insert(schema.creditLedger)
               .values({ ownerId: user.id, unit: "short", delta: FREE_SHORTS_ON_SIGNUP, reason: "signup" });
+            await syncAdmin(user.id, user.email);
+          },
+        },
+      },
+      session: {
+        create: {
+          // Every sign-in re-checks ADMIN_EMAILS, so adding or removing an admin takes effect at their next sign-in.
+          after: async (session) => {
+            const u = await db.query.users.findFirst({ where: eq(schema.users.id, session.userId) });
+            if (u) await syncAdmin(u.id, u.email);
           },
         },
       },

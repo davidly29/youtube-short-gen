@@ -1,4 +1,4 @@
-import { Coins, FolderOpen, ImageIcon, KeyRound, MonitorPlay, Plus } from "lucide-react";
+import { Coins, FolderOpen, ImageIcon, KeyRound, MonitorPlay, Plus, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "../../src/components/sign-out";
@@ -35,6 +35,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 {label}
               </Link>
             ))}
+            {balance.admin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-ink-soft hover:bg-paper hover:text-ink"
+                data-testid="admin-link"
+              >
+                <ShieldCheck className="size-4" aria-hidden />
+                Admin
+              </Link>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <Link
@@ -44,7 +54,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               title="Short credits: plans and billing"
             >
               <Coins className="size-3.5" aria-hidden />
-              {balance.shorts} Shorts left
+              {balance.unlimited ? "Unlimited" : `${balance.shorts} Shorts left`}
             </Link>
             <Link
               href="/new"

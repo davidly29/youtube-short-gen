@@ -19,6 +19,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         initial={JSON.parse(JSON.stringify(view))}
         caps={caps}
         creditsLeft={balance.shorts}
+        unlimited={balance.unlimited}
         library={library}
       />
     );

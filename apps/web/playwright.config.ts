@@ -35,6 +35,8 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "e2e-only-secret-e2e-only-secret-1234",
       REDIS_URL: "",
       AUTH_RATE_LIMIT: "off",
+      ADMIN_EMAILS: "owner-e2e@example.test",
+      SHORTLOOP_ACCESS_CODES: "BETATEST1:2",
     },
   },
 });
