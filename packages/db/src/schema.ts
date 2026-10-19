@@ -93,7 +93,12 @@ export const authVerifications = pgTable("auth_verifications", {
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
-/** A connected publishing account (e.g. a YouTube channel). OAuth tokens arrive in E8-01. */
+export const channelStatus = pgEnum("channel_status", ["connected", "needs_reconnect", "disconnected"]);
+
+/**
+ * A connected publishing account (e.g. a YouTube channel). `secret` is the OAuth refresh token, AES-256-GCM
+ * encrypted and bound to (owner, channel); it is never returned to the browser.
+ */
 export const channels = pgTable(
   "channels",
   {
@@ -104,7 +109,12 @@ export const channels = pgTable(
     platform: platform("platform").notNull(),
     externalId: text("external_id").notNull(),
     title: text("title").notNull(),
+    avatarUrl: text("avatar_url"),
+    secret: text("secret"),
+    scopes: text("scopes"),
+    status: channelStatus("status").notNull().default("connected"),
     createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("channels_platform_external_id").on(t.platform, t.externalId)],
 );
@@ -251,9 +261,22 @@ export const publishRecords = pgTable(
     externalId: text("external_id"),
     url: text("url"),
     publishedAt: timestamp("published_at", { withTimezone: true, mode: "string" }),
+    /** One upload per (video, channel): `publishIdempotencyKey`. */
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    projectId: text("project_id"),
+    jobId: text("job_id"),
+    /** Resumable upload session, so a retry continues instead of starting a second upload. */
+    uploadUrl: text("upload_url"),
+    /** For `scheduled_next_window`: when the quota window reopens. */
+    retryAt: timestamp("retry_at", { withTimezone: true, mode: "string" }),
+    error: text("error"),
     createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
-  (t) => [index("publish_records_owner").on(t.ownerId)],
+  (t) => [
+    index("publish_records_owner").on(t.ownerId),
+    index("publish_records_status_retry").on(t.status, t.retryAt),
+  ],
 );
 
 /**

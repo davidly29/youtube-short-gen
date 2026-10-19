@@ -1,0 +1,64 @@
+/** Only what publishing needs: upload videos, and read the channel they go to. */
+export const YOUTUBE_SCOPES = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.readonly",
+] as const;
+
+export interface YouTubeOAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  /** e.g. https://app.example.com/api/channels/youtube/callback */
+  redirectUri: string;
+}
+
+export interface YouTubeChannel {
+  id: string;
+  title: string;
+  avatarUrl?: string;
+}
+
+/** What we send in videos.insert (snippet + status). */
+export interface VideoMetadata {
+  title: string;
+  description: string;
+  tags: string[];
+  categoryId: string;
+  privacyStatus: "public" | "unlisted" | "private";
+  /** RFC 3339; YouTube requires privacyStatus "private" for scheduled videos. */
+  publishAt?: string;
+  /** "Altered or synthetic content" disclosure. */
+  containsSyntheticMedia: boolean;
+  selfDeclaredMadeForKids: boolean;
+}
+
+export interface UploadInput {
+  accessToken: string;
+  filePath: string;
+  metadata: VideoMetadata;
+  /** A resumable session from an earlier attempt: continue it instead of starting a second upload. */
+  sessionUrl?: string;
+  /** Called as soon as a session exists, so the caller can persist it before any bytes move. */
+  onSession?: (url: string) => Promise<void> | void;
+}
+
+/** The user's grant expired or was revoked: they must connect the channel again. */
+export class ReconnectRequired extends Error {
+  constructor(message = "YouTube access expired. Reconnect the channel to keep publishing.") {
+    super(message);
+  }
+}
+
+/** The daily upload quota is used up; try again in the next quota window. */
+export class QuotaExceeded extends Error {}
+
+export interface YouTubeClient {
+  authUrl(state: string): string;
+  exchangeCode(code: string): Promise<{ refreshToken: string; accessToken: string; scopes: string[] }>;
+  /** Fresh access token from a refresh token; throws ReconnectRequired when the grant is gone. */
+  accessToken(refreshToken: string): Promise<string>;
+  revoke(token: string): Promise<void>;
+  myChannel(accessToken: string): Promise<YouTubeChannel>;
+  upload(input: UploadInput): Promise<{ videoId: string }>;
+}
+
+export const videoUrl = (videoId: string) => `https://www.youtube.com/shorts/${videoId}`;

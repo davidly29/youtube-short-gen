@@ -17,6 +17,7 @@ import {
   aiScriptAction,
   alternativesAction,
   approveAction,
+  publishAction,
   captionsAction,
   produceAction,
   saveScriptAction,
@@ -62,6 +63,7 @@ export function Studio({
   const [view, setView] = useState(initial);
   const p = view.project;
   const busy = p.status === "scripting" || p.status === "producing";
+  const publishing = view.publishes.some((x) => x.status === "queued" || x.status === "uploading");
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/projects/${p.id}`, { cache: "no-store" });
@@ -69,10 +71,10 @@ export function Studio({
   }, [p.id]);
 
   useEffect(() => {
-    if (!busy) return;
-    const t = setInterval(() => void refresh(), 1500);
+    if (!busy && !publishing) return;
+    const t = setInterval(() => void refresh(), busy ? 1500 : 3000);
     return () => clearInterval(t);
-  }, [busy, refresh]);
+  }, [busy, publishing, refresh]);
 
   const status = STATUS_LABEL[p.status] ?? { label: p.status, tone: "neutral" as const };
   const hasVideo = Boolean(view.videoUrl) && (p.status === "ready" || p.status === "approved");
@@ -565,6 +567,7 @@ function Review({ view, onChanged }: { view: View; onChanged: () => Promise<void
         </div>
         {!view.publishable.ok && <ErrorText>{view.publishable.problems.join(" ")}</ErrorText>}
         <ErrorText>{error}</ErrorText>
+        {p.status === "approved" && <PublishPanel view={view} onChanged={onChanged} />}
       </div>
       <div className="space-y-6">
         <VisualsEditor view={view} onChanged={onChanged} />
@@ -755,6 +758,213 @@ function RightsPanel({ view }: { view: View }) {
           ))}
         </tbody>
       </table>
+    </Card>
+  );
+}
+
+const PUBLISH_STATUS: Record<string, { label: string; tone: "neutral" | "brand" | "good" | "warn" | "bad" }> =
+  {
+    queued: { label: "Queued", tone: "neutral" },
+    uploading: { label: "Uploading…", tone: "brand" },
+    published: { label: "Published", tone: "good" },
+    scheduled: { label: "Scheduled", tone: "good" },
+    scheduled_next_window: { label: "Waiting for YouTube's daily limit to reset", tone: "warn" },
+    failed: { label: "Failed", tone: "bad" },
+  };
+
+const when = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+
+function PublishPanel({ view, onChanged }: { view: View; onChanged: () => Promise<void> }) {
+  const done = new Set(view.publishes.filter((x) => x.status !== "failed").map((x) => x.channelId));
+  const connected = view.channels.filter((c) => c.status === "connected");
+  const available = connected.filter((c) => !done.has(c.id));
+  const [channelId, setChannelId] = useState(available[0]?.id ?? "");
+  useEffect(() => {
+    if (!available.some((c) => c.id === channelId)) setChannelId(available[0]?.id ?? "");
+  }, [available, channelId]);
+  const [title, setTitle] = useState((view.script?.title ?? view.project.title).slice(0, 100));
+  const [description, setDescription] = useState(
+    view.script ? `${view.script.hook}\n\n${view.script.cta}` : "",
+  );
+  const [tags, setTags] = useState("");
+  const [privacy, setPrivacy] = useState<"public" | "unlisted" | "private">("public");
+  const [schedule, setSchedule] = useState(false);
+  const [at, setAt] = useState("");
+  const [ai, setAi] = useState(view.aiDisclosureRequired);
+  const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(false);
+
+  async function go() {
+    setLoading(true);
+    setError(undefined);
+    const r = await publishAction(view.project.id, {
+      channelId,
+      title,
+      description,
+      tags: tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+      privacy,
+      scheduledAt: schedule && at ? new Date(at).toISOString() : undefined,
+      aiDisclosure: ai || view.aiDisclosureRequired,
+    });
+    setLoading(false);
+    if (!r.ok) return setError(r.error);
+    await onChanged();
+  }
+
+  return (
+    <Card className="mt-2" data-testid="publish-panel">
+      <h2 className="text-lg font-semibold">Publish to YouTube</h2>
+      {view.publishes.length > 0 && (
+        <ul className="mt-3 space-y-2" data-testid="publishes">
+          {view.publishes.map((x) => {
+            const s = PUBLISH_STATUS[x.status] ?? { label: x.status, tone: "neutral" as const };
+            return (
+              <li key={x.id} className="rounded-lg bg-paper p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{x.channelTitle}</span>
+                  <Badge tone={s.tone}>{s.label}</Badge>
+                </div>
+                {x.url && (
+                  <a
+                    href={x.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-block text-xs font-semibold text-brand"
+                    data-testid="published-link"
+                  >
+                    {x.status === "scheduled" ? `Goes live ${when(x.scheduledAt)}` : "View on YouTube"}
+                  </a>
+                )}
+                {x.status === "scheduled_next_window" && (
+                  <p className="mt-1 text-xs text-ink-soft">
+                    We’ll upload it automatically after {when(x.retryAt)}.
+                  </p>
+                )}
+                {x.error && <p className="mt-1 text-xs text-bad">{x.error}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {connected.length === 0 ? (
+        <p className="mt-3 text-sm text-ink-soft" data-testid="no-channel-hint">
+          <a href="/channels" className="font-semibold text-brand">
+            Connect a YouTube channel
+          </a>{" "}
+          to publish this Short.
+        </p>
+      ) : available.length === 0 ? (
+        <p className="mt-3 text-sm text-ink-soft" data-testid="all-published">
+          Published to all your connected channels.{" "}
+          <a href="/channels" className="font-semibold text-brand">
+            Add another channel
+          </a>
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <div>
+            <Label htmlFor="pub-channel">Channel</Label>
+            <Select id="pub-channel" value={channelId} onChange={(e) => setChannelId(e.target.value)}>
+              {available.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="pub-title">Title</Label>
+            <Input id="pub-title" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="pub-desc">Description</Label>
+            <Textarea
+              id="pub-desc"
+              value={description}
+              maxLength={4500}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-ink-soft">
+              #Shorts and credits for stock media are added for you.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="pub-tags">Tags (comma separated)</Label>
+            <Input
+              id="pub-tags"
+              value={tags}
+              placeholder="octopus, ocean facts"
+              onChange={(e) => setTags(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="pub-privacy">Visibility</Label>
+              <Select
+                id="pub-privacy"
+                value={privacy}
+                onChange={(e) => setPrivacy(e.target.value as typeof privacy)}
+                disabled={schedule}
+              >
+                <option value="public">Public</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="private">Private</option>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  className="accent-brand"
+                  checked={schedule}
+                  onChange={(e) => setSchedule(e.target.checked)}
+                />{" "}
+                Schedule
+              </label>
+              {schedule && (
+                <Input
+                  type="datetime-local"
+                  aria-label="Publish at"
+                  value={at}
+                  onChange={(e) => setAt(e.target.value)}
+                />
+              )}
+            </div>
+          </div>
+          <label className="flex items-start gap-2 rounded-lg border border-line p-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-brand"
+              checked={ai || view.aiDisclosureRequired}
+              disabled={view.aiDisclosureRequired}
+              onChange={(e) => setAi(e.target.checked)}
+              data-testid="ai-disclosure"
+            />
+            <span>
+              Label as altered or synthetic content
+              <span className="block text-xs text-ink-soft">
+                {view.aiDisclosureRequired
+                  ? "Required: this Short uses realistic AI images or an AI voice that could pass for a real person."
+                  : "Optional for this Short. Turn on if viewers could mistake anything for real footage."}
+              </span>
+            </span>
+          </label>
+          <ErrorText>{error}</ErrorText>
+          <Button
+            className="w-full"
+            onClick={() => void go()}
+            loading={loading}
+            disabled={!channelId || !title.trim() || (schedule && !at)}
+            data-testid="publish"
+          >
+            {schedule ? "Schedule on YouTube" : "Publish to YouTube"}
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

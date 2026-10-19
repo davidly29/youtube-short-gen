@@ -12,6 +12,9 @@ import {
 import {
   FakeImage,
   FakeTTS,
+  FakeYouTube,
+  youtubeFromEnv,
+  type YouTubeClient,
   platformProvidersFromEnv,
   secretBoxFromEnv,
   storageFromEnv,
@@ -22,7 +25,7 @@ import {
   type Storage,
   type TTS,
 } from "@shortloop/providers";
-import { createWorker, userKeyResolver } from "@shortloop/worker";
+import { createWorker, requeueHeldPublishes, userKeyResolver } from "@shortloop/worker";
 
 export interface UserProviders {
   llm?: LLM;
@@ -41,8 +44,10 @@ export interface Runtime {
   image: ImageGen;
   stock: StockProvider[];
   sharedKeys: boolean;
-  /** Encrypts users' own API keys at rest. */
+  /** Encrypts users' own API keys and channel tokens at rest. */
   box: SecretBox;
+  /** YouTube OAuth + upload (needs GOOGLE_CLIENT_ID/SECRET; a fake in fake mode). */
+  youtube?: YouTubeClient;
   /** Fake adapters and offline key checks (e2e and local demos). */
   fake: boolean;
   /** The providers a user's own keys unlock, layered over the platform defaults. */
@@ -63,6 +68,7 @@ async function build(): Promise<Runtime> {
     ? { llm: undefined, tts: new FakeTTS(), image: new FakeImage(), stock: [], sharedKeys: false }
     : platformProvidersFromEnv();
   const { llm, tts, image, stock } = platform;
+  const youtube = fake() ? new FakeYouTube() : youtubeFromEnv();
   const resolveOwn = userKeyResolver(handle.db, box, { fake: fake() });
   const providersFor = async (userId: string): Promise<UserProviders> => {
     const own = await resolveOwn(userId);
@@ -91,7 +97,18 @@ async function build(): Promise<Runtime> {
       storage,
       providers: { llm, tts, image, stock },
       providersFor: resolveOwn,
+      box,
+      youtube,
+      dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
+        ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
+        : undefined,
     });
+    // All-in-one mode: this process also releases posts held for YouTube's daily quota.
+    const j = jobs;
+    setInterval(
+      () => void requeueHeldPublishes(handle.db, j).catch((e) => console.error(e)),
+      10 * 60_000,
+    ).unref();
   }
   return {
     db: handle.db,
@@ -103,6 +120,7 @@ async function build(): Promise<Runtime> {
     stock,
     sharedKeys: platform.sharedKeys,
     box,
+    youtube,
     fake: fake(),
     providersFor,
     mode: redisUrl ? "queue" : "all-in-one",

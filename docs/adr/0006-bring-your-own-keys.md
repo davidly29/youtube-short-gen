@@ -1,6 +1,6 @@
 # ADR 0006: Users bring their own AI keys (BYOK); the platform pays only for free defaults
 
-Status: accepted by owner request (2026-10-18), details proposed · Date: 2026-10-18
+Status: accepted (owner, 2026-10-18) · Date: 2026-10-18
 
 ## Context
 
@@ -29,7 +29,8 @@ operator for every user. The owner wants creators to use, and pay for, their own
 - Rotating `SHORTLOOP_SECRETS_KEY` makes saved keys unreadable; they're then treated as missing and users re-enter
   them. A re-encryption script can be added if rotation is ever needed.
 
-## Open question (owner)
+## Owner decisions (2026-10-18)
 
-Should Shorts made entirely with a user's own keys still consume ShortLoop credits (we still pay render compute and
-storage), and should pricing tiers change to a lower "platform fee" model?
+- Shorts made with a user's own keys **still use ShortLoop credits** (we pay render compute and storage).
+- The free built-in voices (Edge, flagged non-commercial in our voice list) are **acceptable as the default**
+  until a user adds ElevenLabs.
