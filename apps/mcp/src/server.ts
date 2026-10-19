@@ -13,7 +13,10 @@ import {
   CreateShortOutput,
   EstimateInput,
   EstimateOutput,
+  GetWorkflowInput,
+  GetWorkflowOutput,
   JobView,
+  ListWorkflowsOutput,
   PublishInput,
   PublishOutput,
   SwapVisualInput,
@@ -21,6 +24,7 @@ import {
   TrendsOutput,
   Voice,
 } from "./schemas";
+import { getWorkflow, listWorkflows } from "./playbooks";
 import { ToolUserError, type ShortLoopServices } from "./services";
 
 export const MAX_WAIT_SECONDS = 50;
@@ -28,6 +32,7 @@ export const MAX_WAIT_SECONDS = 50;
 const INSTRUCTIONS = `ShortLoop makes original 9:16 YouTube Shorts and publishes them to the user's channel.
 Typical flow: create_short (topic -> job) -> wait_for_job until done -> show the user the video_url ->
 optionally swap_visual -> approve_short (only after the user has seen it) -> publish_short -> wait_for_job.
+For a specific format (trend explainer, myth vs fact, top-3 list, news in 60s), call list_workflows to pick a format, then get_workflow for each phase.
 Each Short uses one credit (get_credit_balance, estimate_cost). Never publish without the user's explicit OK.`;
 
 type Result = {
@@ -216,6 +221,31 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
     () => r(() => services.getCreditBalance()),
   );
 
+  server.registerTool(
+    "list_workflows",
+    {
+      title: "Short formats",
+      description:
+        "Format playbooks (trend explainer, myth vs fact, top-3 list, news in 60s) with step-by-step instructions. Pick one, then call get_workflow for each phase in order.",
+      outputSchema: ListWorkflowsOutput,
+      annotations: { readOnlyHint: true },
+    },
+    () => r(async () => ({ workflows: listWorkflows() })),
+  );
+
+  server.registerTool(
+    "get_workflow",
+    {
+      title: "Format instructions",
+      description:
+        "Markdown instructions for one phase (start, script, visuals, publish) of a format from list_workflows. Follow them before moving to the next phase.",
+      inputSchema: GetWorkflowInput,
+      outputSchema: GetWorkflowOutput,
+      annotations: { readOnlyHint: true },
+    },
+    ({ slug, phase }) => r(async () => ({ slug, phase, markdown: getWorkflow(slug, phase) })),
+  );
+
   return server;
 }
 
@@ -231,6 +261,8 @@ export const TOOL_NAMES = [
   "approve_short",
   "publish_short",
   "get_credit_balance",
+  "list_workflows",
+  "get_workflow",
 ] as const;
 
 /**

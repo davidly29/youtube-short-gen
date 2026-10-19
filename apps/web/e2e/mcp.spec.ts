@@ -103,7 +103,8 @@ test.describe("E9-01 MCP server", () => {
 
     const agent = await connectAgent(page);
     const { tools } = await agent.listTools();
-    expect(tools).toHaveLength(11);
+    expect(tools).toHaveLength(13);
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(["list_workflows", "get_workflow"]));
 
     const balance = data<{ shorts: number }>(
       await agent.callTool({ name: "get_credit_balance", arguments: {} }),

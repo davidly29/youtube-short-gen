@@ -136,3 +136,17 @@ export const TrendsOutput = z.object({
   message: z.string(),
   trends: z.array(z.object({ topic: z.string(), why_now: z.string() })),
 });
+
+export const WorkflowPhase = z.enum(["start", "script", "visuals", "publish"]);
+export const ListWorkflowsOutput = z.object({
+  workflows: z.array(z.object({ slug: z.string(), title: z.string(), summary: z.string() })),
+});
+export const GetWorkflowInput = z.object({
+  slug: z.string().min(1).max(60).describe("From list_workflows, e.g. 'news-in-60s'."),
+  phase: WorkflowPhase.describe("Follow the phases in order: start, script, visuals, publish."),
+});
+export const GetWorkflowOutput = z.object({
+  slug: z.string(),
+  phase: WorkflowPhase,
+  markdown: z.string().describe("Step-by-step instructions for this phase."),
+});
