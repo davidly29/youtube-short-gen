@@ -45,6 +45,14 @@ describe("migrations", () => {
       "assets",
       "audit_events",
       "auth_accounts",
+      "auth_jwks",
+      "auth_oauth_access_token",
+      "auth_oauth_client",
+      "auth_oauth_client_assertion",
+      "auth_oauth_client_resource",
+      "auth_oauth_consent",
+      "auth_oauth_refresh_token",
+      "auth_oauth_resource",
       "auth_sessions",
       "auth_verifications",
       "channels",
@@ -62,7 +70,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(14);
+    expect(await tableNames()).toHaveLength(22);
   });
 });
 
