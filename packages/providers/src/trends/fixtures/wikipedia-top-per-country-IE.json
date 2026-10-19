@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "country": "IE",
+      "access": "all-access",
+      "year": "2026",
+      "month": "10",
+      "day": "18",
+      "articles": [
+        { "article": "Main_Page", "project": "en.wikipedia", "views_ceil": 98000, "rank": 1 },
+        { "article": "Special:Search", "project": "en.wikipedia", "views_ceil": 41000, "rank": 2 },
+        { "article": "Halley's_Comet", "project": "en.wikipedia", "views_ceil": 23400, "rank": 3 },
+        { "article": "Solid-state_battery", "project": "en.wikipedia", "views_ceil": 12100, "rank": 4 },
+        {
+          "article": "Wikipedia:Featured_pictures",
+          "project": "en.wikipedia",
+          "views_ceil": 9000,
+          "rank": 5
+        },
+        { "article": "Hurricane_Nadia_(2026)", "project": "en.wikipedia", "views_ceil": 8800, "rank": 6 },
+        { "article": "Éire", "project": "ga.wikipedia", "views_ceil": 3100, "rank": 7 },
+        { "article": "Some_page", "project": "en.wiktionary", "views_ceil": 2000, "rank": 8 }
+      ]
+    }
+  ]
+}

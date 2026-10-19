@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -550,3 +551,34 @@ export const oauthClientAssertion = pgTable("auth_oauth_client_assertion", {
   id: text("id").primaryKey(),
   expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
 });
+
+// ---- Trend radar (E3-01)
+export const trendSource = pgEnum("trend_source", ["youtube_popular", "wikipedia", "rss", "google_trends"]);
+
+/**
+ * Raw trend signals (metadata only: titles, keywords, view counts), kept 30 days by `pruneSignals`.
+ * One row per (source, region, category, title, hour): re-running a collection in the same hour inserts nothing.
+ */
+export const trendSignals = pgTable(
+  "trend_signals",
+  {
+    id: text("id").primaryKey(),
+    source: trendSource("source").notNull(),
+    region: text("region").notNull(),
+    /** YouTube category id, or '' when the source isn't category-scoped (keeps the unique key NULL-free). */
+    categoryId: text("category_id").notNull().default(""),
+    niche: text("niche"),
+    title: text("title").notNull(),
+    url: text("url"),
+    keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
+    metric: doublePrecision("metric").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true, mode: "string" }).notNull(),
+    /** `observedAt` truncated to the hour: the dedupe bucket. */
+    observedHour: timestamp("observed_hour", { withTimezone: true, mode: "string" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("trend_signals_dedupe").on(t.source, t.region, t.categoryId, t.title, t.observedHour),
+    index("trend_signals_observed_at").on(t.observedAt),
+  ],
+);

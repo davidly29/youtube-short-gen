@@ -65,6 +65,7 @@ describe("migrations", () => {
       "scripts",
       "subscriptions",
       "timelines",
+      "trend_signals",
       "user_api_keys",
       "users",
     ]);
@@ -73,7 +74,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(25);
+    expect(await tableNames()).toHaveLength(26);
   });
 });
 

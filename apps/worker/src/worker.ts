@@ -14,6 +14,7 @@ import type {
   SecretBox,
   StockProvider,
   Storage,
+  TrendCollector,
   TTS,
   YouTubeClient,
 } from "@shortloop/providers";
@@ -21,6 +22,7 @@ import { productionFailureListener, withProduction } from "./chain";
 import { publishHandler } from "./publish";
 import { renderHandler } from "./render";
 import { scriptHandler } from "./script";
+import { trendsHandler } from "./trends";
 import { visualsHandler } from "./visuals";
 import { voiceHandler } from "./voice";
 
@@ -51,6 +53,8 @@ export interface WorkerDeps {
   youtube?: YouTubeClient;
   /** YouTube uploads per Pacific day before holding posts for the next window (default 100). */
   dailyUploadLimit?: number;
+  /** Platform trend collectors (E3-01); without them the trends stage reports it isn't set up. */
+  trendCollectors?: TrendCollector[];
 }
 
 /** Shown when a stage needs a paid provider the user hasn't connected. */
@@ -111,7 +115,9 @@ export function createWorker(deps: WorkerDeps): JobService {
             "publish",
             "not set up (the server needs a Google OAuth client: GOOGLE_CLIENT_ID/SECRET)",
           ),
-    trends: unavailable("trends", "not implemented yet"),
+    trends: deps.trendCollectors
+      ? trendsHandler(deps.db, deps.trendCollectors)
+      : unavailable("trends", "not set up (no trend collectors configured)"),
   };
   const chained: Record<JobType, JobHandler> = {
     ...handlers,

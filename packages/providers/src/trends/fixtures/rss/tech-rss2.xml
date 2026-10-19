@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Fixture Tech News</title>
+    <link>https://tech.example.com/</link>
+    <description>Fixture feed for ShortLoop tests</description>
+    <item>
+      <title>Chipmaker unveils 1nm prototype &amp; roadmap</title>
+      <link>https://tech.example.com/2026/10/19/1nm-prototype</link>
+      <category>Semiconductors</category>
+      <category>Hardware</category>
+      <pubDate>Mon, 19 Oct 2026 08:30:00 GMT</pubDate>
+      <enclosure url="https://cdn.tech.example.com/media/1nm.mp4" length="1234567" type="video/mp4"/>
+      <media:content url="https://cdn.tech.example.com/media/1nm.jpg" medium="image"/>
+    </item>
+    <item>
+      <title><![CDATA[Open-source AI model tops coding benchmark]]></title>
+      <link>https://tech.example.com/2026/10/18/open-model</link>
+      <category>AI</category>
+      <dc:date>2026-10-18T20:00:00Z</dc:date>
+      <enclosure url="https://cdn.tech.example.com/podcast/ep42.mp3" length="99" type="audio/mpeg"/>
+    </item>
+    <item>
+      <title>Last week's gadget roundup</title>
+      <link>https://tech.example.com/2026/10/12/roundup</link>
+      <pubDate>Mon, 12 Oct 2026 09:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>An undated evergreen guide</title>
+      <link>https://tech.example.com/guide</link>
+    </item>
+  </channel>
+</rss>

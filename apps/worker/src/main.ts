@@ -11,10 +11,12 @@ import {
   platformProvidersFromEnv,
   secretBoxFromEnv,
   storageFromEnv,
+  trendCollectorsFromEnv,
   youtubeFromEnv,
 } from "@shortloop/providers";
 import { userKeyResolver } from "./keys";
 import { requeueHeldPublishes } from "./publish";
+import { startTrendSchedule, trendsConfigFromEnv } from "./trends";
 import { createWorker } from "./worker";
 
 // Traces (OTEL_EXPORTER_OTLP_ENDPOINT) and errors (SENTRY_DSN) are only exported when configured.
@@ -40,6 +42,8 @@ const jobs = createWorker({
   dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
     ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
     : undefined,
+  // Trend radar (E3-01): free official APIs, platform-level, no user keys or credits.
+  trendCollectors: trendCollectorsFromEnv(),
 });
 // Posts held for YouTube's daily quota go out when the next window opens.
 const sweep = setInterval(
@@ -53,9 +57,18 @@ console.log(
 // Monthly credits that weren't used expire at the end of their billing period (no rollover).
 const expiry = setInterval(() => void expireCredits(handle.db).catch((e) => console.error(e)), 10 * 60_000);
 
+// Hourly trend collection (one job per region + one for niche feeds; idempotent per hour).
+let stopTrends: () => void = () => undefined;
+try {
+  stopTrends = startTrendSchedule(jobs, handle.db, trendsConfigFromEnv());
+} catch (e) {
+  console.error("trend collection disabled:", e instanceof Error ? e.message : e);
+}
+
 console.log(`worker started (${redisUrl ? "BullMQ" : "in-memory"} queues)`);
 
 const shutdown = async () => {
+  stopTrends();
   clearInterval(expiry);
   clearInterval(sweep);
   await driver.close();

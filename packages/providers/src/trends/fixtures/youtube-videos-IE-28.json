@@ -1,0 +1,39 @@
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "fixture-etag-28",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "id": "fx_tech_001",
+      "snippet": {
+        "title": "I Tested Every Budget Phone Of 2026 | Which One Is Best?",
+        "tags": ["budget phone", "smartphone review", "2026"],
+        "categoryId": "28",
+        "thumbnails": { "high": { "url": "https://i.ytimg.com/vi/fx_tech_001/hqdefault.jpg" } }
+      },
+      "statistics": { "viewCount": "1843221" }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "fx_tech_002",
+      "snippet": {
+        "title": "Why Solid-State Batteries Are Finally Here",
+        "tags": ["solid-state battery", "EV", "battery tech"],
+        "categoryId": "28",
+        "thumbnails": { "high": { "url": "https://i.ytimg.com/vi/fx_tech_002/hqdefault.jpg" } }
+      },
+      "statistics": { "viewCount": "912004" }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "fx_tech_003",
+      "snippet": {
+        "title": "The Fusion Reactor That Just Broke A Record",
+        "categoryId": "28",
+        "thumbnails": { "high": { "url": "https://i.ytimg.com/vi/fx_tech_003/hqdefault.jpg" } }
+      },
+      "statistics": { "viewCount": "455120" }
+    }
+  ],
+  "pageInfo": { "totalResults": 3, "resultsPerPage": 25 }
+}

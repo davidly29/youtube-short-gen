@@ -13,7 +13,15 @@ import {
   Script,
   Timeline,
 } from "./index";
-import { validAsset, validJob, validPublishRequest, validScript, validTimeline } from "./fixtures";
+import {
+  validAsset,
+  validJob,
+  validPublishRequest,
+  validScript,
+  validTimeline,
+  validTrendSignal,
+} from "./fixtures";
+import { TrendSignal } from "./trends";
 
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
   expect(schema.safeParse(v).success).toBe(true);
@@ -142,5 +150,30 @@ describe("SaveApiKey / ApiKeyInfo (BYOK)", () => {
   });
   it("every provider has at least one capability", () => {
     for (const p of ApiKeyProvider.options) expect(PROVIDER_CAPABILITIES[p].length).toBeGreaterThan(0);
+  });
+});
+
+describe("TrendSignal (E3-01)", () => {
+  it("accepts a valid signal, a niche RSS signal and a global region", () => {
+    ok(TrendSignal, validTrendSignal);
+    ok(TrendSignal, {
+      ...validTrendSignal,
+      source: "rss",
+      region: "global",
+      categoryId: undefined,
+      niche: "science",
+      metric: 1,
+    });
+  });
+  it("rejects an unknown source, a lower-case region, a non-numeric category and a bad URL", () => {
+    bad(TrendSignal, { ...validTrendSignal, source: "tiktok" });
+    bad(TrendSignal, { ...validTrendSignal, region: "ie" });
+    bad(TrendSignal, { ...validTrendSignal, categoryId: "science" });
+    bad(TrendSignal, { ...validTrendSignal, url: "not a url" });
+  });
+  it("rejects a negative metric, an empty title and a non-ISO observedAt", () => {
+    bad(TrendSignal, { ...validTrendSignal, metric: -1 });
+    bad(TrendSignal, { ...validTrendSignal, title: "" });
+    bad(TrendSignal, { ...validTrendSignal, observedAt: "this morning" });
   });
 });

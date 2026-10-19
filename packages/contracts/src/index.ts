@@ -23,4 +23,5 @@ export {
   SaveApiKey,
 } from "./keys";
 export { PLANS, PlanId, SubscriptionStatus, type BillingEvent, type Plan } from "./billing";
+export { TrendRegion, TrendSignal, TrendSource } from "./trends";
 export { AuditEvent, AuditEventType, TraceId } from "./audit";
