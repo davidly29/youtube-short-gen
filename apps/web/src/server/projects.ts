@@ -89,7 +89,12 @@ export async function createProject(userId: string, input: z.infer<typeof NewPro
 }
 
 /** Queue an AI script for the project's topic. Returns the job id to poll. */
-export async function requestAiScript(userId: string, projectId: string) {
+export async function requestAiScript(
+  userId: string,
+  projectId: string,
+  /** Start production as soon as the script is written (MCP create_short: topic to video in one call). */
+  produce?: { voiceId: string; captionStyle: z.infer<typeof CaptionStyleId>; imageStyle?: string },
+) {
   const rt = await runtime();
   if (!(await rt.providersFor(userId)).llm)
     throw new UserError(
@@ -105,6 +110,7 @@ export async function requestAiScript(userId: string, projectId: string) {
       targetSeconds: p.settings.targetSeconds ?? 45,
       tone: p.settings.tone ?? "curious",
       language: p.settings.language ?? "en",
+      produce,
     },
     { idempotencyKey: `script:${projectId}:${Date.now()}`, ownerId: userId },
   );

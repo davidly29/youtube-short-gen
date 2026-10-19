@@ -3,7 +3,7 @@ import { Lock } from "lucide-react";
 import { ApiKeys } from "../../../../src/components/api-keys";
 import { Card } from "../../../../src/components/ui";
 import { PROVIDER_NAME } from "../../../../src/lib/provider-meta";
-import { requireUser } from "../../../../src/server/auth";
+import { mcpResource, requireUser } from "../../../../src/server/auth";
 import { listKeys } from "../../../../src/server/keys";
 import { capabilities } from "../../../../src/server/projects";
 
@@ -67,6 +67,17 @@ export default async function KeysPage() {
         </p>
       </Card>
       <ApiKeys initial={keys} />
+      <Card data-testid="mcp-card">
+        <h2 className="font-semibold">Use ShortLoop from Claude, ChatGPT or Cursor</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Add ShortLoop as a custom connector (MCP server) with this URL. You’ll sign in and approve access
+          once; then ask your assistant to make, review and publish Shorts. It can only publish what you
+          approve.
+        </p>
+        <code className="mt-3 block select-all rounded-lg bg-paper px-3 py-2 text-sm" data-testid="mcp-url">
+          {mcpResource()}
+        </code>
+      </Card>
     </div>
   );
 }
