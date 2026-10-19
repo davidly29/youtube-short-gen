@@ -12,3 +12,5 @@ export * from "./timeline";
 export * from "./variation";
 export * from "./billing";
 export * from "./publish";
+export * from "./audit";
+export * from "./tracing";

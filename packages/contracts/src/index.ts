@@ -23,3 +23,4 @@ export {
   SaveApiKey,
 } from "./keys";
 export { PLANS, PlanId, SubscriptionStatus, type BillingEvent, type Plan } from "./billing";
+export { AuditEvent, AuditEventType, TraceId } from "./audit";

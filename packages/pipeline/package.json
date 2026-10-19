@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Pure functions per pipeline stage (no I/O)",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tracing": "./src/tracing.ts"
   },
   "scripts": {
     "lint": "eslint src scripts",
@@ -14,6 +15,14 @@
     "record:script": "tsx scripts/record-script-cassettes.ts"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/core": "^2.12.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.223.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/sdk-trace-node": "^2.12.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "@sentry/node": "^11.8.0",
     "@shortloop/contracts": "workspace:*",
     "@shortloop/db": "workspace:*",
     "@shortloop/providers": "workspace:*",

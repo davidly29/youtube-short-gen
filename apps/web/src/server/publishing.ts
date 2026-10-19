@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { PublishRequest, publishIdempotencyKey } from "@shortloop/contracts";
 import { and, desc, eq, schema } from "@shortloop/db";
+import { recordAudit, withSpan } from "@shortloop/pipeline";
 import { z } from "zod";
 import { UserError } from "./errors";
 import { runtime } from "./runtime";
@@ -18,6 +19,24 @@ export const PublishForm = z.object({
 
 /** Queue an upload of the approved render to one channel. Publishing the same render twice to a channel is refused. */
 export async function publishShort(
+  userId: string,
+  projectId: string,
+  input: z.input<typeof PublishForm>,
+  aiRequired: boolean,
+): Promise<string> {
+  // One trace from this request through the queue to the worker's upload (E13-02).
+  return withSpan(
+    "publish.request",
+    { "shortloop.project_id": projectId, "shortloop.user_id": userId },
+    async (span) => {
+      const id = await requestPublish(userId, projectId, input, aiRequired);
+      span.setAttribute("shortloop.publish_id", id);
+      return id;
+    },
+  );
+}
+
+async function requestPublish(
   userId: string,
   projectId: string,
   input: z.input<typeof PublishForm>,
@@ -88,12 +107,12 @@ export async function publishShort(
     { idempotencyKey: existing ? `${key}:retry:${Date.now()}` : key, ownerId: userId },
   );
   await rt.db.update(schema.publishRecords).set({ jobId: job.id }).where(eq(schema.publishRecords.id, id));
-  await rt.db.insert(schema.auditEvents).values({
+  await recordAudit(rt.db, {
     ownerId: userId,
     type: "publish.requested",
     subjectId: id,
+    jobId: job.id,
     data: {
-      jobId: job.id,
       channelId: ch.id,
       projectId,
       scheduledAt: form.scheduledAt ?? null,
