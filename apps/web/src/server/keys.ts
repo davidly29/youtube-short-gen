@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ApiKeyInfo, ApiKeyProvider, ProviderRouting, SaveApiKey } from "@shortloop/contracts";
 import { managedAllowance } from "@shortloop/pipeline";
+import { managedProvidersFromEnv } from "@shortloop/providers";
 import { loadRouting } from "@shortloop/worker";
 import { and, eq, schema } from "@shortloop/db";
 import { fakeVerifyApiKey, keyAad, last4, verifyApiKey } from "@shortloop/providers";
@@ -113,8 +114,20 @@ export async function resetKeyHealth(userId: string, provider: unknown): Promise
     .where(and(eq(schema.userApiKeys.ownerId, userId), eq(schema.userApiKeys.provider, p)));
 }
 
-/** ShortLoop AI on the user's plan: whether they have it, and this month's spend against their limit. */
+/**
+ * ShortLoop AI on the user's plan: whether they have it, this month's spend against their limit, and which jobs
+ * it can do (only those whose platform key is configured).
+ */
 export async function shortloopAllowance(userId: string) {
-  const { db } = await runtime();
-  return managedAllowance(db, userId);
+  const rt = await runtime();
+  const m = managedProvidersFromEnv(process.env, { fake: rt.fake });
+  return {
+    ...(await managedAllowance(rt.db, userId)),
+    jobs: {
+      llm: Boolean(m.llm),
+      image: Boolean(m.image),
+      premiumImage: Boolean(m.premiumImage),
+      tts: Boolean(m.tts),
+    },
+  };
 }

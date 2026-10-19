@@ -63,6 +63,15 @@ describe("resolveRouting", () => {
     });
   });
 
+  it("ShortLoop AI is only routed for the jobs it can actually do", () => {
+    expect(resolveRouting([], {}, { managed: { image: true } })).toEqual({
+      llm: undefined,
+      image: "shortloop",
+      tts: "free",
+    });
+    expect(resolveRouting([], { tts: "shortloop" }, { managed: { image: true } }).tts).toBe("free");
+  });
+
   it("ShortLoop AI choices are ignored without a paid plan", () => {
     expect(resolveRouting([], { llm: "shortloop", image: "shortloop_premium", tts: "shortloop" })).toEqual({
       llm: undefined,

@@ -117,9 +117,26 @@ async function run<T>(
   } catch (err) {
     if (err instanceof ProviderError)
       await safely(() => ins.report?.({ provider, capability, source: ins.source, ok: false, error: err }));
+    // A failure on ShortLoop's own key is our operations problem, not the user's billing: say so, and don't make
+    // it a permanent failure of their job. (The original error went to `report`, which alerts Sentry.)
+    if (ins.source === "shortloop" && err instanceof ProviderError && err.kind !== "blocked")
+      throw new ProviderError({
+        kind: "unavailable",
+        provider: "shortloop",
+        capability,
+        detail: err.detail,
+        message: SHORTLOOP_TROUBLE[capability],
+      });
     throw err;
   }
 }
+
+const SHORTLOOP_TROUBLE: Record<ProviderCapability, string> = {
+  llm: "ShortLoop AI can't write scripts right now. Try again in a few minutes, or add your own AI key in Settings → API keys.",
+  image: "ShortLoop AI images aren't available right now, so the free images were used.",
+  tts: "ShortLoop AI voices aren't available right now, so the free voices were used.",
+  stock: "ShortLoop stock search isn't available right now.",
+};
 
 export class InstrumentedLLM implements LLM {
   readonly provider: string;
@@ -204,10 +221,21 @@ export type OnFallback = (e: {
   error: unknown;
 }) => unknown;
 
-const isPermanent = (err: unknown) => err instanceof ProviderError && err.permanent;
+/**
+ * After this, the rest of the job skips the primary: a bad key or no quota won't fix itself, and ShortLoop AI that
+ * failed or was denied by a guardrail stays that way for this job. A blocked prompt is about one prompt, not the
+ * provider, so it doesn't count.
+ */
+const skipsProvider = (err: unknown) =>
+  err instanceof ProviderError &&
+  (err.kind === "auth" || err.kind === "quota" || err.provider === "shortloop");
 
-/** Our own prompt rules aren't provider failures: never fall back on them. */
-const fallsBack = (err: unknown) => !(err instanceof ImagePromptRejected);
+/**
+ * Never fall back on our own prompt rules, or on a provider refusing a prompt for safety: retrying the same
+ * prompt on a provider with weaker moderation would sidestep the refusal. That beat goes without an AI image.
+ */
+const fallsBack = (err: unknown) =>
+  !(err instanceof ImagePromptRejected) && !(err instanceof ProviderError && err.kind === "blocked");
 
 /** Try the primary image provider; on any provider failure use the fallback (the free provider). */
 export class FallbackImage implements ImageGen {
@@ -227,7 +255,7 @@ export class FallbackImage implements ImageGen {
         return await this.primary.generate(req);
       } catch (err) {
         if (!fallsBack(err)) throw err;
-        if (isPermanent(err)) this.skipPrimary = true;
+        if (skipsProvider(err)) this.skipPrimary = true;
         await safely(() =>
           this.onFallback?.({
             capability: "image",
@@ -262,7 +290,8 @@ export class FallbackTTS implements TTS {
         const r = await this.primary.synthesize(req);
         return { ...r, provider: r.provider ?? this.primary.provider };
       } catch (err) {
-        if (isPermanent(err)) this.skipPrimary = true;
+        if (!fallsBack(err)) throw err;
+        if (skipsProvider(err)) this.skipPrimary = true;
         await safely(() =>
           this.onFallback?.({
             capability: "tts",

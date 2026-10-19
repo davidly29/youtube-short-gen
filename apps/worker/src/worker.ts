@@ -1,6 +1,7 @@
-import type { Db } from "@shortloop/db";
+import { balance, type Db } from "@shortloop/db";
 import {
   InsufficientCreditsError,
+  isCreditExempt,
   JOB_TYPES,
   reserve,
   JobService,
@@ -96,6 +97,8 @@ export function createWorker(deps: WorkerDeps): JobService {
       fetch: base.fetch,
       route: { image: "free", tts: "free" },
       notices: [],
+      premiumAvailable: false,
+      usage: { premiumImages: 0 },
     };
   };
   const resolve = deps.resolveProviders ?? legacy;
@@ -133,20 +136,14 @@ export function createWorker(deps: WorkerDeps): JobService {
     visuals: async (ctx) => {
       const c = contextOf(ctx);
       let p = await resolve(c);
-      let premiumJobId: string | undefined;
-      if (p.route.image === "shortloop_premium") {
-        // Premium images spend one AI-video credit per Short; without one, use standard ShortLoop images.
-        try {
-          const held = await deps.db.query.creditLedger.findFirst({
-            where: (l, { and, eq }) => and(eq(l.jobId, ctx.job.id), eq(l.unit, "ai_video_credit")),
-          });
-          if (!held) await reserve(deps.db, ctx.ownerId, { ai_video_credit: 1 }, ctx.job.id);
-          premiumJobId = ctx.job.id;
+      let premium = false;
+      if (p.premiumAvailable) {
+        // Premium images cost one AI-video credit per Short, charged only if one is actually made.
+        const exempt = await isCreditExempt(deps.db, ctx.ownerId);
+        if (exempt || (await balance(deps.db, ctx.ownerId, "ai_video_credit")) >= 1) {
+          premium = true;
           p = await resolve({ ...c, premium: true });
-        } catch (e) {
-          if (!(e instanceof InsufficientCreditsError)) throw e;
-          p.notices.push(PREMIUM_NEEDS_CREDIT);
-        }
+        } else p.notices.push(PREMIUM_NEEDS_CREDIT);
       }
       if (!(p.stock?.length ?? 0) && !p.image) throw new Error(NEEDS_KEY.visuals);
       const out = await withNotices(c.projectId, p, () =>
@@ -157,6 +154,19 @@ export function createWorker(deps: WorkerDeps): JobService {
         await addNotices(deps.db, c.projectId, [
           `${gaps} beat${gaps === 1 ? "" : "s"} couldn't get an image, so the previous image stays on screen longer. You can swap visuals below.`,
         ]);
+      let premiumJobId: string | undefined;
+      if (premium && p.usage.premiumImages > 0) {
+        const held = await deps.db.query.creditLedger.findFirst({
+          where: (l, { and, eq }) => and(eq(l.jobId, ctx.job.id), eq(l.unit, "ai_video_credit")),
+        });
+        try {
+          if (!held) await reserve(deps.db, ctx.ownerId, { ai_video_credit: 1 }, ctx.job.id);
+          premiumJobId = ctx.job.id;
+        } catch (e) {
+          // Spent elsewhere in the meantime (a race): the images are made; don't fail the Short over it.
+          if (!(e instanceof InsufficientCreditsError)) throw e;
+        }
+      }
       return premiumJobId ? { ...out, premiumJobId } : out;
     },
     render: renderHandler(deps.storage, deps.db),

@@ -38,7 +38,13 @@ export type HealthyKey = UserKey & { unavailable?: readonly { capability: Provid
  */
 export function providersFromKeys(
   keys: HealthyKey[],
-  opts: { fetch?: typeof fetch; fake?: boolean; routing?: ProviderRouting; managed?: boolean } = {},
+  opts: {
+    fetch?: typeof fetch;
+    fake?: boolean;
+    routing?: ProviderRouting;
+    /** Which jobs ShortLoop AI can do for this user (their plan includes it and its key is configured). */
+    managed?: boolean | Partial<Record<"llm" | "image" | "tts", boolean>>;
+  } = {},
 ): ProviderSet {
   const f = opts.fetch ?? fetch;
   const route = resolveRouting(keys, opts.routing ?? {}, { managed: opts.managed });

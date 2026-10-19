@@ -1,10 +1,11 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, balance, eq, openDb, schema, seed, SEED, type DbHandle } from "@shortloop/db";
 import { MemoryEventBus, MemoryQueueDriver, recordAiUsage, type JobService } from "@shortloop/pipeline";
 import {
   FakeImage,
+  FakeStock,
   FakeTTS,
   keyAad,
   LocalStorage,
@@ -334,6 +335,47 @@ describe("ShortLoop AI on paid plans", () => {
     const two = await produce(jobs, "2");
     expect(two.project?.status).toBe("ready");
     expect(two.project?.notices).toContain(PREMIUM_NEEDS_CREDIT);
+  });
+});
+
+describe("premium images are charged only when made", () => {
+  it("no AI-video credit is spent when stock covers every beat", async () => {
+    await subscribe("pro");
+    await route({ image: "shortloop_premium" });
+    await h.db
+      .insert(schema.creditLedger)
+      .values({ ownerId: SEED.userId, unit: "ai_video_credit", delta: 1, reason: "plan_grant" });
+    const png = await new FakeImage().generate({ prompt: "x", aspect: "9:16", outDir: dir });
+    const bytes = await readFile(png.path);
+    const { project } = await produce(
+      worker({
+        managed: managedProvidersFromEnv(ON, { fake: true }),
+        env: ON,
+        platform: {
+          tts: new FakeTTS(),
+          image: freeImage(),
+          stock: [new FakeStock()],
+          fetch: (async () => new Response(bytes)) as unknown as typeof fetch,
+        },
+      }),
+    );
+    expect(project?.status, project?.error ?? "").toBe("ready");
+    expect(await balance(h.db, SEED.userId, "ai_video_credit")).toBe(1);
+  });
+
+  it("premium isn't offered when ShortLoop has no premium image key; standard ShortLoop images are used", async () => {
+    await subscribe("pro");
+    await route({ image: "shortloop_premium" });
+    await h.db
+      .insert(schema.creditLedger)
+      .values({ ownerId: SEED.userId, unit: "ai_video_credit", delta: 1, reason: "plan_grant" });
+    const m = managedProvidersFromEnv(ON, { fake: true });
+    const { project } = await produce(worker({ managed: { ...m, premiumImage: undefined }, env: ON }));
+    expect(project?.status, project?.error ?? "").toBe("ready");
+    expect(await balance(h.db, SEED.userId, "ai_video_credit")).toBe(1);
+    const images = (await h.db.select().from(schema.aiUsage)).filter((u) => u.capability === "image");
+    expect(images.length).toBeGreaterThan(0);
+    expect(images.every((u) => u.costUsd < 0.01)).toBe(true);
   });
 });
 

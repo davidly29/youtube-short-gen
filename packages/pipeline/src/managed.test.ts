@@ -101,6 +101,18 @@ describe("managedDenial", () => {
     expect(await managedDenial(h.db, ctx({ projectId: "prj_6", tier: "pro" }), "image")).toBeUndefined();
   });
 
+  it("drafting scripts or swapping on an older Short doesn't count as a new Short today", async () => {
+    for (let i = 0; i < 5; i++)
+      await spend(0.002, { projectId: `prj_s${i}`, capability: "llm", provider: "gemini", jobId: `j${i}` });
+    expect(await managedDenial(h.db, ctx({ projectId: "prj_real" }), "tts")).toBeUndefined();
+    for (let i = 0; i < 5; i++) await spend(0.01, { projectId: `prj_${i}`, capability: "tts" });
+    expect(await managedDenial(h.db, ctx({ projectId: "prj_real" }), "tts")).toBe("daily_shorts");
+    expect(await managedDenial(h.db, ctx({ projectId: "prj_old", swap: true }), "image")).toBeUndefined();
+    expect(
+      await managedDenial(h.db, ctx({ projectId: "prj_new_script", jobId: "j9" }), "llm"),
+    ).toBeUndefined();
+  });
+
   it("allows 10 AI image swaps per Short", async () => {
     for (let i = 0; i < 10; i++) await spend(0.001, { swap: true });
     expect(await managedDenial(h.db, ctx({ swap: true }), "image")).toBe("swaps");

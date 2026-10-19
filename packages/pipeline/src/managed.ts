@@ -9,7 +9,7 @@ import {
   type ManagedTier,
   type ProviderCapability,
 } from "@shortloop/contracts";
-import { and, eq, gte, ne, schema, sql, type Db } from "@shortloop/db";
+import { and, eq, gte, ne, or, schema, sql, type Db } from "@shortloop/db";
 import { reportError } from "./tracing";
 
 /**
@@ -110,18 +110,23 @@ export async function managedDenial(
   if (ctx.projectId) {
     const cap = ctx.premium ? Math.max(PREMIUM_PER_SHORT_USD, limits.perShortUsd) : limits.perShortUsd;
     if ((await sumCost(db, and(eq(u.projectId, ctx.projectId)))) >= cap) return "per_short";
+    // A "Short" for the daily limit is a production on ShortLoop AI (a voice, or images that aren't swaps);
+    // drafting scripts or swapping visuals on an earlier Short doesn't start a new one.
+    const production = or(eq(u.capability, "tts"), and(eq(u.capability, "image"), eq(u.swap, false)));
     const otherProjectsToday = await count(
       db,
       sql<number>`count(distinct ${u.projectId})::int`,
-      and(eq(u.ownerId, ctx.ownerId), gte(u.createdAt, today), ne(u.projectId, ctx.projectId)),
+      and(eq(u.ownerId, ctx.ownerId), gte(u.createdAt, today), ne(u.projectId, ctx.projectId), production),
     );
     const thisProjectToday = await count(
       db,
       sql<number>`count(*)::int`,
-      and(eq(u.projectId, ctx.projectId), gte(u.createdAt, today)),
+      and(eq(u.projectId, ctx.projectId), gte(u.createdAt, today), production),
     );
-    // A Short already started today on ShortLoop AI can finish; a new one counts against the daily limit.
-    if (thisProjectToday === 0 && otherProjectsToday >= limits.shortsPerDay) return "daily_shorts";
+    // A Short already started today can finish; a new production counts against the daily limit.
+    const startsProduction = !ctx.swap && capability !== "llm";
+    if (startsProduction && thisProjectToday === 0 && otherProjectsToday >= limits.shortsPerDay)
+      return "daily_shorts";
     if (ctx.swap && capability === "image") {
       const swaps = await count(
         db,

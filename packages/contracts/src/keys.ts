@@ -139,9 +139,11 @@ const usable = (k: RoutableKey, cap: ProviderCapability) =>
 export function resolveRouting(
   keys: readonly RoutableKey[],
   routing: ProviderRouting = {},
-  opts: { managed?: boolean } = {},
+  opts: { managed?: boolean | Partial<Record<"llm" | "image" | "tts", boolean>> } = {},
 ): ResolvedRouting {
-  const managed = opts.managed === true;
+  const m = opts.managed;
+  const managedFor = (cap: ProviderCapability) =>
+    m === true || (typeof m === "object" && m !== null && m[cap as "llm" | "image" | "tts"] === true);
   const has = (provider: string, cap: ProviderCapability) =>
     keys.some((k) => k.provider === provider && usable(k, cap));
   const ok = (choice: string | undefined, cap: ProviderCapability) =>
@@ -149,7 +151,7 @@ export function resolveRouting(
     (choice === FREE
       ? cap !== "llm"
       : choice === SHORTLOOP || choice === SHORTLOOP_PREMIUM
-        ? managed
+        ? managedFor(cap)
         : has(choice, cap));
 
   const newestLlm = [...keys]
@@ -157,19 +159,19 @@ export function resolveRouting(
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.provider as LlmChoice | undefined;
   const llm: LlmChoice | undefined = ok(routing.llm, "llm")
     ? routing.llm
-    : (newestLlm ?? (managed ? SHORTLOOP : undefined));
+    : (newestLlm ?? (managedFor("llm") ? SHORTLOOP : undefined));
   const image: ImageChoice = ok(routing.image, "image")
     ? (routing.image as ImageChoice)
     : has("fal", "image")
       ? "fal"
-      : managed
+      : managedFor("image")
         ? SHORTLOOP
         : FREE;
   const tts: VoiceChoice = ok(routing.tts, "tts")
     ? (routing.tts as VoiceChoice)
     : has("elevenlabs", "tts")
       ? "elevenlabs"
-      : managed
+      : managedFor("tts")
         ? SHORTLOOP
         : FREE;
   return { llm, image, tts };

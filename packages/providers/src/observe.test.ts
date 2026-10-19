@@ -123,6 +123,45 @@ describe("InstrumentedImage + FallbackImage", () => {
     expect(free.calls).toBe(2);
   });
 
+  it("doesn't take a safety-blocked prompt to the free provider, and keeps using the primary for other beats", async () => {
+    let n = 0;
+    const gemini = stubImage("gemini", async () => {
+      if (++n === 1)
+        throw new ProviderError({
+          kind: "blocked",
+          provider: "gemini",
+          capability: "image",
+          detail: "SAFETY",
+        });
+    });
+    const free = stubImage("pollinations", async () => {});
+    const img = new FallbackImage(new InstrumentedImage(gemini, { source: "own" }), free);
+    await expect(img.generate(req())).rejects.toMatchObject({ kind: "blocked" });
+    expect((await img.generate(req())).provider).toBe("gemini");
+    expect(free.calls).toBe(0);
+  });
+
+  it("a failure on ShortLoop's own key reads as ShortLoop's problem, not the user's billing", async () => {
+    const reported: ProviderEvent[] = [];
+    const fal = stubImage("fal", async () => {
+      throw new ProviderError({
+        kind: "quota",
+        provider: "fal",
+        capability: "image",
+        detail: "Exhausted balance",
+      });
+    });
+    const err = await new InstrumentedImage(fal, { source: "shortloop", report: (e) => reported.push(e) })
+      .generate(req())
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ kind: "unavailable", provider: "shortloop" });
+    expect((err as Error).message).toBe(
+      "ShortLoop AI images aren't available right now, so the free images were used.",
+    );
+    expect((err as ProviderError).permanent).toBe(false);
+    expect(reported[0]?.error).toMatchObject({ kind: "quota", provider: "fal" }); // ops still see the real cause
+  });
+
   it("doesn't fall back when our own prompt rules reject the prompt", async () => {
     const primary = stubImage("fal", async () => {
       throw new ImagePromptRejected("names a real person");

@@ -43,13 +43,14 @@ export default async function KeysPage() {
         value: k.provider,
         label: own(k.provider),
       }));
-  const shortloop = managed ? [{ value: "shortloop", label: SHORTLOOP_LABEL }] : [];
+  const shortloop = (job: "llm" | "image" | "tts") =>
+    managed && allowance.jobs[job] ? [{ value: "shortloop", label: SHORTLOOP_LABEL }] : [];
   const jobs: RoutingJob[] = [
     {
       id: "llm",
       label: "Scripts",
       automatic: choiceLabel("llm", caps.route.llm) ?? "none: add a key",
-      options: [...shortloop, ...ownOptions("llm")],
+      options: [...shortloop("llm"), ...ownOptions("llm")],
     },
     {
       id: "image",
@@ -57,8 +58,10 @@ export default async function KeysPage() {
       automatic: choiceLabel("image", caps.route.image) ?? FREE_LABEL.image,
       options: [
         { value: "free", label: FREE_LABEL.image },
-        ...shortloop,
-        ...(managed ? [{ value: "shortloop_premium", label: PREMIUM_LABEL }] : []),
+        ...shortloop("image"),
+        ...(managed && allowance.jobs.premiumImage
+          ? [{ value: "shortloop_premium", label: PREMIUM_LABEL }]
+          : []),
         ...ownOptions("image"),
       ],
       hint: keys.some((k) => k.unavailable.some((u) => u.capability === "image"))
@@ -69,7 +72,7 @@ export default async function KeysPage() {
       id: "tts",
       label: "Voice",
       automatic: choiceLabel("tts", caps.route.tts) ?? FREE_LABEL.tts,
-      options: [{ value: "free", label: FREE_LABEL.tts }, ...shortloop, ...ownOptions("tts")],
+      options: [{ value: "free", label: FREE_LABEL.tts }, ...shortloop("tts"), ...ownOptions("tts")],
     },
   ];
   const stock = keys

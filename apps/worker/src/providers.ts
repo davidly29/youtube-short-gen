@@ -53,6 +53,10 @@ export interface ResolvedProviders {
   route: ResolvedRouting;
   /** User-facing notes about fallbacks during this job. */
   notices: string[];
+  /** Premium images were chosen, and ShortLoop can make them for this user (plan + configured key). */
+  premiumAvailable: boolean;
+  /** Live counters for this job, e.g. how many premium images were actually made (charged after the fact). */
+  usage: { premiumImages: number };
 }
 
 export interface PlatformDefaults {
@@ -102,12 +106,17 @@ export function createResolver(deps: ResolverDeps): (ctx: ResolveContext) => Pro
     const keys = deps.box ? await loadUserKeys(db, deps.box, ctx.ownerId) : [];
     const routing = deps.box ? await loadRouting(db, ctx.ownerId) : {};
     const tier = anyManaged ? await managedTier(db, ctx.ownerId) : undefined;
+    // ShortLoop AI is only routed for jobs whose platform key is configured.
+    const managedJobs = tier
+      ? { llm: Boolean(managed.llm), image: Boolean(managed.image), tts: Boolean(managed.tts) }
+      : false;
     const set = providersFromKeys(keys, {
       routing,
-      managed: Boolean(tier),
+      managed: managedJobs,
       fake: deps.fake,
       fetch: deps.fetch,
     });
+    const usage = { premiumImages: 0 };
     const route = set.route;
     const notices: string[] = [];
     const seen = new Set<string>();
@@ -125,7 +134,7 @@ export function createResolver(deps: ResolverDeps): (ctx: ResolveContext) => Pro
     };
     const own: Instrumentation = { source: "own", report, sleep: deps.sleep };
     const free: Instrumentation = { source: "free", sleep: deps.sleep };
-    const shortloop = (price: Instrumentation["price"]): Instrumentation => ({
+    const shortloop = (price: Instrumentation["price"], onMetered?: () => void): Instrumentation => ({
       source: "shortloop",
       report,
       sleep: deps.sleep,
@@ -147,8 +156,9 @@ export function createResolver(deps: ResolverDeps): (ctx: ResolveContext) => Pro
         );
         return denial ? managedDenialMessage(denial, capability) : undefined;
       },
-      meter: (u) =>
-        recordAiUsage(db, {
+      meter: async (u) => {
+        onMetered?.();
+        await recordAiUsage(db, {
           ownerId: ctx.ownerId,
           projectId: ctx.projectId,
           jobId: ctx.jobId,
@@ -158,7 +168,8 @@ export function createResolver(deps: ResolverDeps): (ctx: ResolveContext) => Pro
           units: u.units,
           costUsd: u.costUsd,
           swap: Boolean(ctx.swap && u.capability === "image"),
-        }),
+        });
+      },
     });
     const onFallback: OnFallback = (e) => notice(fallbackNotice(e.capability, e.error, e.to));
 
@@ -176,7 +187,7 @@ export function createResolver(deps: ResolverDeps): (ctx: ResolveContext) => Pro
     else if (route.image === "shortloop_premium" && ctx.premium && managed.premiumImage)
       primaryImage = new InstrumentedImage(
         managed.premiumImage.provider,
-        shortloop(managed.premiumImage.price),
+        shortloop(managed.premiumImage.price, () => usage.premiumImages++),
       );
     else if ((route.image === "shortloop" || route.image === "shortloop_premium") && managed.image)
       primaryImage = new InstrumentedImage(managed.image.provider, shortloop(managed.image.price));
@@ -202,6 +213,8 @@ export function createResolver(deps: ResolverDeps): (ctx: ResolveContext) => Pro
       fetch: platform.fetch,
       route,
       notices,
+      premiumAvailable: Boolean(tier && route.image === "shortloop_premium" && managed.premiumImage),
+      usage,
     };
   };
 }
