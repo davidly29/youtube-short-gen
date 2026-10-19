@@ -11,6 +11,8 @@ export interface ProductionChain {
   musicAssetId?: string;
   /** The job whose ledger rows hold the Short credit for this production (set by the voice stage). */
   creditJobId?: string;
+  /** The visuals job that spent an AI-video credit on premium images, refunded if the production fails. */
+  premiumJobId?: string;
 }
 
 /** Optional on a script job: start production (voice -> visuals -> render) as soon as the script is saved. */
@@ -32,6 +34,7 @@ export async function setProject(
     renderAssetId: string;
     lastJobId: string;
     error: string | null;
+    notices: string[];
   }>,
 ): Promise<void> {
   await db
@@ -66,6 +69,10 @@ export function withProduction(
       });
     }
     let chain = input.chain;
+    if (stage === "voice" && chain && !chain.creditJobId && projectId) {
+      // A new production starts with a clean slate of notices.
+      await setProject(db, projectId, { notices: [] });
+    }
     if (stage === "voice" && chain && !chain.creditJobId) {
       // One Short credit per production, reserved atomically here (retries don't double-reserve).
       const held = await db.query.creditLedger.findFirst({
@@ -116,9 +123,10 @@ export function withProduction(
     }
     if (stage === "visuals" && chain) {
       await setProject(db, chain.projectId, { timelineId: output.timelineId as string });
+      const premiumJobId = output.premiumJobId as string | undefined;
       await jobs().enqueue(
         "render",
-        { timelineId: output.timelineId, chain },
+        { timelineId: output.timelineId, chain: premiumJobId ? { ...chain, premiumJobId } : chain },
         { idempotencyKey: `render:${output.timelineId as string}`, ownerId: ctx.ownerId },
       );
     }
@@ -136,6 +144,18 @@ export function productionFailureListener(db: Db) {
     const projectId = chain?.projectId ?? (job.input.projectId as string | undefined);
     const creditJobId = chain?.creditJobId ?? (chain && job.type === "voice" ? job.id : undefined);
     if (creditJobId) await refund(db, creditJobId);
+    if (chain?.premiumJobId && chain.premiumJobId !== job.id) await refund(db, chain.premiumJobId);
     if (projectId) await setProject(db, projectId, { status: "failed", error: job.error ?? "failed" });
   };
+}
+
+/** Append notices to a project (deduplicated, at most 10), e.g. "Images: used Pollinations instead. …". */
+export async function addNotices(db: Db, projectId: string, notices: string[]): Promise<void> {
+  const p = await db.query.projects.findFirst({
+    where: eq(schema.projects.id, projectId),
+    columns: { notices: true },
+  });
+  if (!p) return;
+  const next = [...new Set([...(p.notices ?? []), ...notices])].slice(-10);
+  await db.update(schema.projects).set({ notices: next }).where(eq(schema.projects.id, projectId));
 }

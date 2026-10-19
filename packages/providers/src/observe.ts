@@ -204,12 +204,16 @@ export type OnFallback = (e: {
   error: unknown;
 }) => unknown;
 
+const isPermanent = (err: unknown) => err instanceof ProviderError && err.permanent;
+
 /** Our own prompt rules aren't provider failures: never fall back on them. */
 const fallsBack = (err: unknown) => !(err instanceof ImagePromptRejected);
 
 /** Try the primary image provider; on any provider failure use the fallback (the free provider). */
 export class FallbackImage implements ImageGen {
   readonly provider: string;
+  /** Set after a permanent failure (bad key, no quota): later calls go straight to the fallback. */
+  private skipPrimary = false;
   constructor(
     readonly primary: ImageGen,
     readonly fallback: ImageGen,
@@ -218,26 +222,30 @@ export class FallbackImage implements ImageGen {
     this.provider = primary.provider;
   }
   async generate(req: ImageRequest): Promise<ImageResult> {
-    try {
-      return await this.primary.generate(req);
-    } catch (err) {
-      if (!fallsBack(err)) throw err;
-      await safely(() =>
-        this.onFallback?.({
-          capability: "image",
-          from: this.primary.provider,
-          to: this.fallback.provider,
-          error: err,
-        }),
-      );
-      return this.fallback.generate(req);
+    if (!this.skipPrimary) {
+      try {
+        return await this.primary.generate(req);
+      } catch (err) {
+        if (!fallsBack(err)) throw err;
+        if (isPermanent(err)) this.skipPrimary = true;
+        await safely(() =>
+          this.onFallback?.({
+            capability: "image",
+            from: this.primary.provider,
+            to: this.fallback.provider,
+            error: err,
+          }),
+        );
+      }
     }
+    return this.fallback.generate(req);
   }
 }
 
 /** Try the primary voice provider; on failure use the fallback with its default voice. */
 export class FallbackTTS implements TTS {
   readonly provider: string;
+  private skipPrimary = false;
   constructor(
     readonly primary: TTS,
     readonly fallback: TTS,
@@ -249,22 +257,25 @@ export class FallbackTTS implements TTS {
     return this.primary.voices();
   }
   async synthesize(req: SynthesizeRequest): Promise<SynthesizeResult> {
-    try {
-      const r = await this.primary.synthesize(req);
-      return { ...r, provider: r.provider ?? this.primary.provider };
-    } catch (err) {
-      await safely(() =>
-        this.onFallback?.({
-          capability: "tts",
-          from: this.primary.provider,
-          to: this.fallback.provider,
-          error: err,
-        }),
-      );
-      const known = this.fallback.voices().some((v) => v.id === req.voiceId);
-      const voiceId = known ? req.voiceId : (this.fallback.voices()[0]?.id ?? req.voiceId);
-      const r = await this.fallback.synthesize({ ...req, voiceId });
-      return { ...r, provider: r.provider ?? this.fallback.provider, voiceId };
+    if (!this.skipPrimary) {
+      try {
+        const r = await this.primary.synthesize(req);
+        return { ...r, provider: r.provider ?? this.primary.provider };
+      } catch (err) {
+        if (isPermanent(err)) this.skipPrimary = true;
+        await safely(() =>
+          this.onFallback?.({
+            capability: "tts",
+            from: this.primary.provider,
+            to: this.fallback.provider,
+            error: err,
+          }),
+        );
+      }
     }
+    const known = this.fallback.voices().some((v) => v.id === req.voiceId);
+    const voiceId = known ? req.voiceId : (this.fallback.voices()[0]?.id ?? req.voiceId);
+    const r = await this.fallback.synthesize({ ...req, voiceId });
+    return { ...r, provider: r.provider ?? this.fallback.provider, voiceId };
   }
 }

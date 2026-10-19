@@ -117,6 +117,10 @@ describe("InstrumentedImage + FallbackImage", () => {
     expect(events).toEqual([expect.objectContaining({ provider: "gemini", ok: false, source: "own" })]);
     expect(events[0]?.error?.noAccess).toBe(true);
     expect(fallbacks).toEqual(["gemini->pollinations"]);
+    // A permanent refusal sticks: the next beat goes straight to the free provider.
+    await img.generate(req());
+    expect(gemini.calls).toBe(1);
+    expect(free.calls).toBe(2);
   });
 
   it("doesn't fall back when our own prompt rules reject the prompt", async () => {
