@@ -8,9 +8,10 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "eslint src",
+    "lint": "eslint src scripts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "record:script": "tsx scripts/record-script-cassettes.ts"
   },
   "dependencies": {
     "@shortloop/contracts": "workspace:*",
@@ -19,5 +20,8 @@
     "bullmq": "^5.81.5",
     "ioredis": "^5.11.1",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }

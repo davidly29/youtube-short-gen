@@ -1,0 +1,84 @@
+{
+  "requestHash": "bcf5bd5210cc7b8d1f39543e0902927b9560237179cbe0d503213f44fa4819fd",
+  "model": "fake-1",
+  "recordedWith": "fake",
+  "recordedAt": "2026-10-19T20:03:15.193Z",
+  "request": {
+    "model": "fake-1",
+    "system": "You write original scripts for vertical short-form videos (YouTube Shorts, TikTok, Reels).\nRules:\n- The hook is the very first sentence, at most 12 words, and it is also how beat 1 begins.\n- 4 to 8 beats. One idea per beat. Each beat is one or two spoken sentences.\n- Every beat has a visualQuery: a concrete, filmable description (subject, action, setting) for stock or AI visuals. No text-on-screen requests, no real people, no brands or characters.\n- Present nothing as fact you are unsure of; mark uncertain claims with [verify] at the end of the sentence.\n- Never quote named real people. Never imitate a specific creator.\n- Total spoken words (beats + cta) must be 117 ±10% for a 45-second video at 2.6 words/second.\n- Language: en. Tone: curious.\nReturn JSON: {\"title\": string, \"hook\": string, \"beats\": [{\"text\": string, \"visualQuery\": string}], \"cta\": string}",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Topic: why leaves change colour"
+      }
+    ],
+    "schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "hook": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beats": {
+          "minItems": 4,
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "visualQuery": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["text", "visualQuery"],
+            "additionalProperties": false
+          }
+        },
+        "cta": {
+          "type": "string"
+        }
+      },
+      "required": ["title", "hook", "beats", "cta"],
+      "additionalProperties": false
+    },
+    "maxTokens": 2500
+  },
+  "response": {
+    "title": "Why leaves change colour",
+    "hook": "Here is the surprising truth about why leaves change colour.",
+    "beats": [
+      {
+        "text": "Here is the surprising truth about why leaves change colour. Most people never think about it Most people never think about it.",
+        "visualQuery": "why leaves change colour, scene 1"
+      },
+      {
+        "text": "But scientists have studied it for years but scientists have studied it for years but scientists have studied it for years but.",
+        "visualQuery": "why leaves change colour, scene 2"
+      },
+      {
+        "text": "And the answer is stranger than you expect and the answer is stranger than you expect and the answer is stranger than.",
+        "visualQuery": "why leaves change colour, scene 3"
+      },
+      {
+        "text": "It starts with something small and simple it starts with something small and simple it starts with something small and simple it.",
+        "visualQuery": "why leaves change colour, scene 4"
+      },
+      {
+        "text": "Then it grows into something remarkable then it grows into something remarkable then it grows into something remarkable then it grows into something remarkable then it.",
+        "visualQuery": "why leaves change colour, scene 5"
+      }
+    ],
+    "cta": "Follow for more."
+  }
+}
