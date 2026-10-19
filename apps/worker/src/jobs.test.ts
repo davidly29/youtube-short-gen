@@ -45,12 +45,14 @@ describe("worker jobs", () => {
     expect(await checkDeliverySpec(storage.path(key), 3000)).toEqual([]);
   });
 
-  it("stages that aren't built yet fail after retries instead of hanging", async () => {
-    const job = await jobs.enqueue("publish", {}, { idempotencyKey: "pub", ownerId: SEED.userId });
+  it("stages that aren't built or configured fail after retries instead of hanging", async () => {
+    const job = await jobs.enqueue("trends", {}, { idempotencyKey: "trends", ownerId: SEED.userId });
+    const pub = await jobs.enqueue("publish", {}, { idempotencyKey: "pub", ownerId: SEED.userId });
     await driver.drain();
     const done = await jobs.get(job.id);
     expect(done?.status).toBe("failed");
     expect(done?.error).toMatch(/not implemented/);
+    expect((await jobs.get(pub.id))?.error).toMatch(/needs a Google OAuth client/);
   });
 
   it("rejects a render whose timeline is invalid", async () => {

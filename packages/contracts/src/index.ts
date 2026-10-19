@@ -6,7 +6,14 @@ export { Asset, AssetKind, AssetSource, Licence, LicenceType } from "./asset";
 export { Beat, Script } from "./script";
 export { AudioClip, CaptionStyleId, CaptionWord, Clip, Timeline } from "./timeline";
 export { Job, JobStatus, JobType } from "./job";
-export { Platform, Privacy, PublishRequest } from "./publish";
+export {
+  ChannelStatus,
+  Platform,
+  Privacy,
+  PublishRequest,
+  PublishStatus,
+  publishIdempotencyKey,
+} from "./publish";
 export {
   ApiKeyInfo,
   ApiKeyProvider,

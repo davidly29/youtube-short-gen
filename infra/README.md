@@ -15,19 +15,21 @@ worker writes to `STORAGE_DIR` (fine for a single-container smoke test, not for 
 
 Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set). Staging has:
 
-| Variable on `web`                             | Value                                                                    |
-| --------------------------------------------- | ------------------------------------------------------------------------ |
-| `DATABASE_URL`                                | `${{Postgres.DATABASE_URL}}`                                             |
-| `S3_BUCKET` / `S3_ENDPOINT`                   | `${{media.BUCKET}}` / `${{media.ENDPOINT}}` (Railway bucket `media`)     |
-| `S3_REGION`                                   | `${{media.REGION}}`                                                      |
-| `S3_ACCESS_KEY_ID` / `..._KEY`                | `${{media.ACCESS_KEY_ID}}` / `${{media.SECRET_ACCESS_KEY}}`              |
-| `BETTER_AUTH_URL`                             | `https://web-staging-0f0b5.up.railway.app`                               |
-| `BETTER_AUTH_SECRET`                          | random, set in Railway only                                              |
-| `RAILPACK_DEPLOY_APT_PACKAGES`                | `ffmpeg fonts-dejavu-core` (rendering needs FFmpeg in the runtime image) |
-| `SHORTLOOP_SECRETS_KEY`                       | random, set in Railway only; encrypts users' own API keys (ADR 0006)     |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | paid plans; see `docs/setup/stripe.md` (billing is off until set)        |
-| `STRIPE_PRICE_CREATOR` / `STRIPE_PRICE_PRO`   | Stripe price ids for the two plans                                       |
-| `SHORTLOOP_SHARED_KEYS`                       | unset by default; `1` shares the operator's env AI keys with every user  |
+| Variable on `web`                             | Value                                                                                         |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                | `${{Postgres.DATABASE_URL}}`                                                                  |
+| `S3_BUCKET` / `S3_ENDPOINT`                   | `${{media.BUCKET}}` / `${{media.ENDPOINT}}` (Railway bucket `media`)                          |
+| `S3_REGION`                                   | `${{media.REGION}}`                                                                           |
+| `S3_ACCESS_KEY_ID` / `..._KEY`                | `${{media.ACCESS_KEY_ID}}` / `${{media.SECRET_ACCESS_KEY}}`                                   |
+| `BETTER_AUTH_URL`                             | `https://web-staging-0f0b5.up.railway.app`                                                    |
+| `BETTER_AUTH_SECRET`                          | random, set in Railway only                                                                   |
+| `RAILPACK_DEPLOY_APT_PACKAGES`                | `ffmpeg fonts-dejavu-core` (rendering needs FFmpeg in the runtime image)                      |
+| `SHORTLOOP_SECRETS_KEY`                       | random, set in Railway only; encrypts users' own API keys (ADR 0006)                          |
+| `GOOGLE_CLIENT_ID` / `_SECRET`                | Google OAuth client for YouTube publishing + Google sign-in; see `docs/setup/google-oauth.md` |
+| `YOUTUBE_DAILY_UPLOAD_LIMIT`                  | uploads per Pacific day before holding posts (default 100, YouTube's default upload bucket)   |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | paid plans; see `docs/setup/stripe.md` (billing is off until set)                             |
+| `STRIPE_PRICE_CREATOR` / `STRIPE_PRICE_PRO`   | Stripe price ids for the two plans                                                            |
+| `SHORTLOOP_SHARED_KEYS`                       | unset by default; `1` shares the operator's env AI keys with every user                       |
 
 Users add their own AI keys in Settings → API keys (ADR 0006); the operator pays only for free defaults.
 

@@ -17,6 +17,9 @@ import {
   FakeImage,
   FakeTTS,
   type BillingProvider,
+  FakeYouTube,
+  youtubeFromEnv,
+  type YouTubeClient,
   platformProvidersFromEnv,
   secretBoxFromEnv,
   storageFromEnv,
@@ -27,7 +30,7 @@ import {
   type Storage,
   type TTS,
 } from "@shortloop/providers";
-import { createWorker, userKeyResolver } from "@shortloop/worker";
+import { createWorker, requeueHeldPublishes, userKeyResolver } from "@shortloop/worker";
 
 export interface UserProviders {
   llm?: LLM;
@@ -46,12 +49,14 @@ export interface Runtime {
   image: ImageGen;
   stock: StockProvider[];
   sharedKeys: boolean;
-  /** Encrypts users' own API keys at rest. */
+  /** Encrypts users' own API keys and channel tokens at rest. */
   box: SecretBox;
   /** Stripe (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET), a fake in fake mode, or undefined when billing is off. */
   billing?: BillingProvider;
   /** Stripe price id -> plan. */
   prices: PriceMap;
+  /** YouTube OAuth + upload (needs GOOGLE_CLIENT_ID/SECRET; a fake in fake mode). */
+  youtube?: YouTubeClient;
   /** Fake adapters and offline key checks (e2e and local demos). */
   fake: boolean;
   /** The providers a user's own keys unlock, layered over the platform defaults. */
@@ -83,6 +88,7 @@ async function build(): Promise<Runtime> {
       );
   // Monthly credits that weren't used expire at the end of their billing period (no rollover).
   setInterval(() => void expireCredits(handle.db).catch((e) => console.error(e)), 10 * 60_000).unref();
+  const youtube = fake() ? new FakeYouTube() : youtubeFromEnv();
   const resolveOwn = userKeyResolver(handle.db, box, { fake: fake() });
   const providersFor = async (userId: string): Promise<UserProviders> => {
     const own = await resolveOwn(userId);
@@ -111,7 +117,18 @@ async function build(): Promise<Runtime> {
       storage,
       providers: { llm, tts, image, stock },
       providersFor: resolveOwn,
+      box,
+      youtube,
+      dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
+        ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
+        : undefined,
     });
+    // All-in-one mode: this process also releases posts held for YouTube's daily quota.
+    const j = jobs;
+    setInterval(
+      () => void requeueHeldPublishes(handle.db, j).catch((e) => console.error(e)),
+      10 * 60_000,
+    ).unref();
   }
   return {
     db: handle.db,
@@ -125,6 +142,7 @@ async function build(): Promise<Runtime> {
     box,
     billing,
     prices,
+    youtube,
     fake: fake(),
     providersFor,
     mode: redisUrl ? "queue" : "all-in-one",

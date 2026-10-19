@@ -12,11 +12,14 @@ import {
   scriptWordCount,
   targetWords,
   WORDS_PER_SECOND,
+  requiresAiDisclosure,
   type RightsManifest,
 } from "@shortloop/pipeline";
 import { generateImageAsset, importStock, type StockResult } from "@shortloop/providers";
 import { z } from "zod";
+import { listChannels } from "./channels";
 import { ownedUploads } from "./library";
+import { listPublishes } from "./publishing";
 import { runtime } from "./runtime";
 
 import { UserError } from "./errors";
@@ -86,7 +89,12 @@ export async function createProject(userId: string, input: z.infer<typeof NewPro
 }
 
 /** Queue an AI script for the project's topic. Returns the job id to poll. */
-export async function requestAiScript(userId: string, projectId: string) {
+export async function requestAiScript(
+  userId: string,
+  projectId: string,
+  /** Start production as soon as the script is written (MCP create_short: topic to video in one call). */
+  produce?: { voiceId: string; captionStyle: z.infer<typeof CaptionStyleId>; imageStyle?: string },
+) {
   const rt = await runtime();
   if (!(await rt.providersFor(userId)).llm)
     throw new UserError(
@@ -102,6 +110,7 @@ export async function requestAiScript(userId: string, projectId: string) {
       targetSeconds: p.settings.targetSeconds ?? 45,
       tone: p.settings.tone ?? "curious",
       language: p.settings.language ?? "en",
+      produce,
     },
     { idempotencyKey: `script:${projectId}:${Date.now()}`, ownerId: userId },
   );
@@ -281,9 +290,23 @@ export async function projectView(userId: string, projectId: string) {
   const thumbUrl = render
     ? await rt.storage.signedUrl(render.storageKey.replace(/\.mp4$/, ".jpg"), 3600)
     : undefined;
+  const voiceAsset = timeline?.audio[0]
+    ? await rt.db.query.assets.findFirst({ where: eq(schema.assets.id, timeline.audio[0].assetId) })
+    : undefined;
+  const aiDisclosureRequired = manifest
+    ? requiresAiDisclosure({
+        manifest,
+        imageStyle: p.settings.imageStyle,
+        voiceProvider: voiceAsset?.licence.provider,
+      })
+    : false;
+  const [publishes, channels] = await Promise.all([listPublishes(userId, projectId), listChannels(userId)]);
   return {
     project: p,
     script,
+    aiDisclosureRequired,
+    publishes,
+    channels,
     job: job
       ? { id: job.id, type: job.type, status: job.status, progress: job.progress, error: job.error }
       : undefined,

@@ -45,6 +45,14 @@ describe("migrations", () => {
       "assets",
       "audit_events",
       "auth_accounts",
+      "auth_jwks",
+      "auth_oauth_access_token",
+      "auth_oauth_client",
+      "auth_oauth_client_assertion",
+      "auth_oauth_client_resource",
+      "auth_oauth_consent",
+      "auth_oauth_refresh_token",
+      "auth_oauth_resource",
       "auth_sessions",
       "auth_verifications",
       "billing_events",
@@ -65,7 +73,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(17);
+    expect(await tableNames()).toHaveLength(25);
   });
 });
 
@@ -153,6 +161,7 @@ describe("round trips validate against the contracts", () => {
       platform: "youtube",
       channelId: "ch_1",
       videoAssetId: SEED.assetIds[0],
+      idempotencyKey: `publish:${SEED.assetIds[0]}:ch_1`,
       request,
     });
     const row = await h.db.query.publishRecords.findFirst({ where: eq(publishRecords.id, "pub_1") });

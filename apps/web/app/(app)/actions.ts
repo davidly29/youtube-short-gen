@@ -1,11 +1,14 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "../../src/server/auth";
+import { disconnect } from "../../src/server/channels";
 import { deleteKey, saveKey } from "../../src/server/keys";
+import { publishShort, type PublishForm } from "../../src/server/publishing";
 import {
   alternatives,
   approve,
   createProject,
+  projectView,
   requestAiScript,
   saveScript,
   startProduction,
@@ -98,5 +101,20 @@ export async function saveKeyAction(input: {
 export async function deleteKeyAction(provider: string) {
   const r = await wrap((uid) => deleteKey(uid, provider));
   revalidatePath("/", "layout");
+  return r;
+}
+
+export async function disconnectAction(channelId: string) {
+  const r = await wrap((uid) => disconnect(uid, channelId));
+  revalidatePath("/channels");
+  return r;
+}
+
+export async function publishAction(projectId: string, form: z.input<typeof PublishForm>) {
+  const r = await wrap(async (uid) => {
+    const view = await projectView(uid, projectId);
+    return publishShort(uid, projectId, form, view.aiDisclosureRequired);
+  });
+  revalidatePath(`/projects/${projectId}`);
   return r;
 }

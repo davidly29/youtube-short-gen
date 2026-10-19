@@ -14,13 +14,18 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@better-auth/cimd": "1.7.11",
+    "@better-auth/mcp": "1.7.11",
+    "@better-auth/oauth-provider": "1.7.11",
+    "@modelcontextprotocol/server": "2.3.1",
     "@shortloop/contracts": "workspace:*",
     "@shortloop/db": "workspace:*",
+    "@shortloop/mcp": "workspace:*",
     "@shortloop/pipeline": "workspace:*",
     "@shortloop/providers": "workspace:*",
     "@shortloop/render": "workspace:*",
     "@shortloop/worker": "workspace:*",
-    "better-auth": "^1.7.10",
+    "better-auth": "^1.7.11",
     "clsx": "^2.1.1",
     "lucide-react": "^1.59.0",
     "next": "^16.4.2",
@@ -32,6 +37,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "^19.3.0",

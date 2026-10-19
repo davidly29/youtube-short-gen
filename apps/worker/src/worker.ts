@@ -7,8 +7,17 @@ import {
   type JobType,
   type QueueDriver,
 } from "@shortloop/pipeline";
-import type { ImageGen, LLM, StockProvider, Storage, TTS } from "@shortloop/providers";
+import type {
+  ImageGen,
+  LLM,
+  SecretBox,
+  StockProvider,
+  Storage,
+  TTS,
+  YouTubeClient,
+} from "@shortloop/providers";
 import { productionFailureListener, withProduction } from "./chain";
+import { publishHandler } from "./publish";
 import { renderHandler } from "./render";
 import { scriptHandler } from "./script";
 import { visualsHandler } from "./visuals";
@@ -35,6 +44,12 @@ export interface WorkerDeps {
    * defaults for that job, so each creator's AI usage is billed to their own accounts.
    */
   providersFor?: (ownerId: string) => Promise<WorkerProviders>;
+  /** Decrypts channel refresh tokens (and users' keys). Publishing needs it. */
+  box?: SecretBox;
+  /** YouTube client (GOOGLE_CLIENT_ID/SECRET); without it the publish stage reports it isn't set up. */
+  youtube?: YouTubeClient;
+  /** YouTube uploads per Pacific day before holding posts for the next window (default 100). */
+  dailyUploadLimit?: number;
 }
 
 /** Shown when a stage needs a paid provider the user hasn't connected. */
@@ -82,7 +97,19 @@ export function createWorker(deps: WorkerDeps): JobService {
       return visualsHandler(deps.db, deps.storage, p.stock ?? [], p.image, p.fetch)(ctx);
     },
     render: renderHandler(deps.storage, deps.db),
-    publish: unavailable("publish", "not implemented yet"),
+    publish:
+      deps.youtube && deps.box
+        ? publishHandler({
+            db: deps.db,
+            storage: deps.storage,
+            box: deps.box,
+            youtube: deps.youtube,
+            dailyLimit: deps.dailyUploadLimit,
+          })
+        : unavailable(
+            "publish",
+            "not set up (the server needs a Google OAuth client: GOOGLE_CLIENT_ID/SECRET)",
+          ),
     trends: unavailable("trends", "not implemented yet"),
   };
   const chained: Record<JobType, JobHandler> = {

@@ -128,6 +128,26 @@ describe("topic to finished Short (fakes for every provider)", () => {
     expect(ledger.map((l) => l.reason)).toEqual(["reserve:short"]); // charged 1, nothing to release
   }, 180_000);
 
+  it("a script job with `produce` goes all the way to a rendered Short (one request, for MCP create_short)", async () => {
+    const jobs = worker(true);
+    await jobs.enqueue(
+      "script",
+      {
+        projectId: SEED.projectId,
+        topic: "octopus hearts",
+        targetSeconds: 30,
+        tone: "curious",
+        language: "en",
+        produce: { voiceId: "fake-voice", captionStyle: "minimal" },
+      },
+      { idempotencyKey: "s-produce", ownerId: SEED.userId },
+    );
+    await driver.drain();
+    const project = await h.db.query.projects.findFirst({ where: eq(schema.projects.id, SEED.projectId) });
+    expect(project?.status, project?.error ?? "").toBe("ready");
+    expect(project?.renderAssetId).toBeTruthy();
+  }, 180_000);
+
   it("falls back to AI images when no stock provider is configured", async () => {
     const jobs = worker(false);
     const s = await run(
