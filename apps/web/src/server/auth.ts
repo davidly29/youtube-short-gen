@@ -1,6 +1,10 @@
 import "server-only";
 import { schema } from "@shortloop/db";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
 import { betterAuth } from "better-auth";
+import { jwt } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
@@ -8,6 +12,17 @@ import { redirect } from "next/navigation";
 import { runtime } from "./runtime";
 
 export const FREE_SHORTS_ON_SIGNUP = 5;
+
+/** The app's public origin (tokens for MCP clients are bound to `${origin}/api/mcp`). */
+export const appOrigin = () => new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").origin;
+export const mcpResource = () => `${appOrigin()}/api/mcp`;
+
+const ID_PREFIX: Record<string, string> = {
+  user: "usr",
+  session: "ses",
+  account: "acc",
+  verification: "ver",
+};
 
 async function build() {
   const { db } = await runtime();
@@ -25,6 +40,14 @@ async function build() {
         session: schema.authSessions,
         account: schema.authAccounts,
         verification: schema.authVerifications,
+        jwks: schema.authJwks,
+        oauthClient: schema.oauthClient,
+        oauthResource: schema.oauthResource,
+        oauthClientResource: schema.oauthClientResource,
+        oauthRefreshToken: schema.oauthRefreshToken,
+        oauthAccessToken: schema.oauthAccessToken,
+        oauthConsent: schema.oauthConsent,
+        oauthClientAssertion: schema.oauthClientAssertion,
       },
     }),
     emailAndPassword: { enabled: true, minPasswordLength: 8, autoSignIn: true },
@@ -37,7 +60,10 @@ async function build() {
           .split(",")
           .map((h) => h.trim()),
       },
-      database: { generateId: () => `usr_${crypto.randomUUID()}` },
+      database: {
+        generateId: ({ model }) =>
+          `${ID_PREFIX[model] ?? model.replace(/[^a-z]/gi, "").slice(0, 8)}_${crypto.randomUUID()}`,
+      },
     },
     socialProviders: google,
     databaseHooks: {
@@ -52,7 +78,20 @@ async function build() {
         },
       },
     },
-    plugins: [nextCookies()],
+    plugins: [
+      // MCP clients (Claude, ChatGPT, Cursor, ...) sign users in with OAuth 2.1 against these same accounts (E9-01).
+      jwt(),
+      mcp({
+        loginPage: "/sign-in",
+        consentPage: "/oauth/consent",
+        resource: mcpResource(),
+        // Clients identify themselves with a Client ID Metadata Document (MCP 2026-07-28) or register dynamically.
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+      }),
+      cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
+      nextCookies(),
+    ],
   });
 }
 

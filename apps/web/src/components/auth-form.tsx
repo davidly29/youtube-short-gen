@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { authClient } from "../lib/auth-client";
+import { authClient, oauthContinueUrl } from "../lib/auth-client";
 import { Button, Card, ErrorText, Input, Label } from "./ui";
 
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
@@ -28,6 +28,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     setLoading(false);
     if (res.error) {
       setError(res.error.message ?? "Something went wrong");
+      return;
+    }
+    // Signing in for an app (e.g. Claude via MCP)? Continue that authorization instead of opening the studio.
+    const next = new URLSearchParams(window.location.search).has("client_id")
+      ? oauthContinueUrl(res.data)
+      : undefined;
+    if (next) {
+      window.location.href = next;
       return;
     }
     router.push("/projects");

@@ -24,6 +24,7 @@ import {
   swapAction,
 } from "../../app/(app)/actions";
 import type { StockResult } from "@shortloop/providers";
+import { CAPTION_STYLES } from "../lib/captions";
 import { cn } from "../lib/cn";
 import type { LibraryItem } from "../server/library";
 import type { capabilities, projectView } from "../server/projects";
@@ -31,15 +32,6 @@ import { Badge, Button, Card, ErrorText, Input, Label, Progress, Select, STATUS_
 
 type View = Awaited<ReturnType<typeof projectView>>;
 type Caps = Awaited<ReturnType<typeof capabilities>>;
-
-const CAPTION_STYLES = [
-  { id: "bold-pop", label: "Bold pop", hint: "Big uppercase, spoken word pops" },
-  { id: "highlight-word", label: "Highlight", hint: "Spoken word turns green" },
-  { id: "karaoke", label: "Karaoke", hint: "Words fill as they're said" },
-  { id: "clean-subtitle", label: "Clean", hint: "Simple subtitles" },
-  { id: "boxed", label: "Boxed", hint: "Text on a dark box" },
-  { id: "minimal", label: "Minimal", hint: "Small and low" },
-] as const;
 
 const IMAGE_STYLES = ["photoreal", "cinematic", "3d", "hand-drawn", "whiteboard", "storyboard", "anime"];
 const STAGE_LABELS = ["Writing script", "Recording voiceover", "Finding visuals", "Rendering video"];
