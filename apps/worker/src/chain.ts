@@ -13,6 +13,13 @@ export interface ProductionChain {
   creditJobId?: string;
 }
 
+/** Optional on a script job: start production (voice -> visuals -> render) as soon as the script is saved. */
+export interface ProduceAfterScript {
+  voiceId: string;
+  captionStyle: CaptionStyleId;
+  imageStyle?: string;
+}
+
 type ProjectStatus = (typeof schema.projects.$inferInsert)["status"];
 
 export async function setProject(
@@ -44,7 +51,12 @@ export function withProduction(
   handler: JobHandler,
 ): JobHandler {
   return async (ctx) => {
-    const input = ctx.job.input as { projectId?: string; chain?: ProductionChain; scriptId?: string };
+    const input = ctx.job.input as {
+      projectId?: string;
+      chain?: ProductionChain;
+      scriptId?: string;
+      produce?: ProduceAfterScript;
+    };
     const projectId = input.chain?.projectId ?? input.projectId;
     if (projectId) {
       await setProject(db, projectId, {
@@ -65,6 +77,23 @@ export function withProduction(
     const output = await handler(ctx);
     if (stage === "script" && projectId) {
       await setProject(db, projectId, { status: "script_ready", scriptId: output.scriptId as string });
+      if (input.produce) {
+        // One request from topic to video (MCP create_short): hand straight on to the voice stage.
+        const voice = await jobs().enqueue(
+          "voice",
+          {
+            scriptId: output.scriptId,
+            voiceId: input.produce.voiceId,
+            chain: {
+              projectId,
+              captionStyle: input.produce.captionStyle,
+              imageStyle: input.produce.imageStyle,
+            },
+          },
+          { idempotencyKey: `produce:${ctx.job.id}`, ownerId: ctx.ownerId },
+        );
+        await setProject(db, projectId, { status: "producing", lastJobId: voice.id });
+      }
     }
     if (stage === "voice" && chain && input.scriptId) {
       await jobs().enqueue(
