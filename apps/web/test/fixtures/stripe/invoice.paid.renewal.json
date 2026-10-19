@@ -1,0 +1,55 @@
+{
+  "id": "evt_invoice_2",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 1792800000,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": null,
+    "idempotency_key": null
+  },
+  "type": "invoice.paid",
+  "data": {
+    "object": {
+      "id": "in_RENEW",
+      "object": "invoice",
+      "customer": "cus_TEST123",
+      "status": "paid",
+      "billing_reason": "subscription_cycle",
+      "amount_paid": 2900,
+      "currency": "usd",
+      "parent": {
+        "type": "subscription_details",
+        "quote_details": null,
+        "subscription_details": {
+          "subscription": "sub_TEST123",
+          "metadata": {
+            "userId": "usr_stripe_test"
+          }
+        }
+      },
+      "lines": {
+        "object": "list",
+        "data": [
+          {
+            "id": "il_1",
+            "object": "line_item",
+            "amount": 2900,
+            "period": {
+              "start": 1795478400,
+              "end": 1798070400
+            },
+            "pricing": {
+              "type": "price_details",
+              "price_details": {
+                "price": "price_creator_test",
+                "product": "prod_creator"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,5 +1,11 @@
 import { defaultDatabaseUrl, openDb } from "@shortloop/db";
-import { BullQueueDriver, MemoryEventBus, MemoryQueueDriver, RedisEventBus } from "@shortloop/pipeline";
+import {
+  BullQueueDriver,
+  expireCredits,
+  MemoryEventBus,
+  MemoryQueueDriver,
+  RedisEventBus,
+} from "@shortloop/pipeline";
 import {
   platformProvidersFromEnv,
   secretBoxFromEnv,
@@ -41,9 +47,13 @@ console.log(
   `platform providers: ${platform.sharedKeys ? "operator keys shared with all users" : "free defaults only"}`,
 );
 
+// Monthly credits that weren't used expire at the end of their billing period (no rollover).
+const expiry = setInterval(() => void expireCredits(handle.db).catch((e) => console.error(e)), 10 * 60_000);
+
 console.log(`worker started (${redisUrl ? "BullMQ" : "in-memory"} queues)`);
 
 const shutdown = async () => {
+  clearInterval(expiry);
   clearInterval(sweep);
   await driver.close();
   await bus.close();

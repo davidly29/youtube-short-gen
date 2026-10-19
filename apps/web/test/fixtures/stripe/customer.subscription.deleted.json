@@ -1,0 +1,45 @@
+{
+  "id": "evt_sub_deleted",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 1792800000,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": null,
+    "idempotency_key": null
+  },
+  "type": "customer.subscription.deleted",
+  "data": {
+    "object": {
+      "id": "sub_TEST123",
+      "object": "subscription",
+      "customer": "cus_TEST123",
+      "status": "canceled",
+      "cancel_at_period_end": true,
+      "metadata": {
+        "userId": "usr_stripe_test"
+      },
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_1",
+            "object": "subscription_item",
+            "current_period_start": 1792800000,
+            "current_period_end": 1798070400,
+            "price": {
+              "id": "price_creator_test",
+              "object": "price",
+              "unit_amount": 2900,
+              "currency": "usd",
+              "recurring": {
+                "interval": "month"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

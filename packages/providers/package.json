@@ -19,6 +19,7 @@
     "@shortloop/contracts": "workspace:*",
     "msedge-tts": "^2.1.0",
     "openai": "^7.38.0",
+    "stripe": "^23.0.0",
     "zod": "^4.6.7"
   }
 }

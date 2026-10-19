@@ -354,6 +354,53 @@ export const userApiKeys = pgTable(
   (t) => [uniqueIndex("user_api_keys_owner_provider").on(t.ownerId, t.provider)],
 );
 
+/** A user's paid plan, mirrored from Stripe webhooks. One row per user. */
+export const subscriptions = pgTable("subscriptions", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id").notNull().unique(),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  plan: text("plan"),
+  status: text("status").notNull().default("incomplete"),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true, mode: "string" }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+});
+
+/**
+ * Credits granted by a paid invoice. They expire at `periodEnd` (no rollover); `expiredAt` marks that the unspent
+ * remainder has been removed from the ledger. One grant per (invoice, unit), so webhook replays can't double-grant.
+ */
+export const creditGrants = pgTable(
+  "credit_grants",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    unit: creditUnit("unit").notNull(),
+    amount: integer("amount").notNull(),
+    plan: text("plan").notNull(),
+    invoiceId: text("invoice_id").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true, mode: "string" }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true, mode: "string" }).notNull(),
+    expiredAt: timestamp("expired_at", { withTimezone: true, mode: "string" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("credit_grants_invoice_unit").on(t.invoiceId, t.unit),
+    index("credit_grants_due").on(t.expiredAt, t.periodEnd),
+  ],
+);
+
+/** Webhook events already applied (Stripe retries and replays deliver the same event id again). */
+export const billingEvents = pgTable("billing_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  receivedAt: createdAt(),
+});
+
 // ---- OAuth 2.1 provider for MCP clients (Better Auth jwt + @better-auth/mcp). Generated from the plugins' schemas.
 export const authJwks = pgTable("auth_jwks", {
   id: text("id").primaryKey(),

@@ -64,6 +64,13 @@
       "when": 1792399065213,
       "tag": "0008_mcp_oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792401761181,
+      "tag": "0009_billing",
+      "breakpoints": true
     }
   ]
 }

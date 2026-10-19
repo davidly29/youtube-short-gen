@@ -10,4 +10,5 @@ export * from "./policy";
 export * from "./visuals";
 export * from "./timeline";
 export * from "./variation";
+export * from "./billing";
 export * from "./publish";
