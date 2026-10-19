@@ -135,7 +135,7 @@ them (see the ADRs).
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
 | #68   | **Bring your own keys** (ADR 0006): users add their own Gemini / Claude / OpenAI / ElevenLabs / Pexels / Pixabay / fal keys; the platform pays only for free defaults      | done                  |
 | #73   | **Admin + beta access codes**: `ADMIN_EMAILS` admins and `SHORTLOOP_ACCESS_CODES` beta testers get unlimited Shorts (still own keys); Admin page                           | done                  |
-| #86   | **E1-05 Provider routing, fallback and ShortLoop AI** (ADR 0007): per-job provider picker, free fallbacks, key health; AI on our keys for Creator/Pro with cost guardrails | in review (#PR)       |
+| #86   | **E1-05 Provider routing, fallback and ShortLoop AI** (ADR 0007): per-job provider picker, free fallbacks, key health; AI on our keys for Creator/Pro with cost guardrails | in review (#87)       |
 | #70   | E1-04 Enforce plan limits (channels per plan)                                                                                                                              | open (agent-proposed) |
 
 Owner decisions recorded so far: PGlite in tests; Railway hosting; FFmpeg renderer (ADR 0004); server actions instead of
