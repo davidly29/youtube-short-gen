@@ -3,7 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { publishIdempotencyKey, type PublishRequest } from "@shortloop/contracts";
 import { eq, openDb, schema, seed, SEED, type DbHandle } from "@shortloop/db";
-import { MemoryEventBus, MemoryQueueDriver, type JobService } from "@shortloop/pipeline";
+import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import {
+  checkVariation,
+  explainPublish,
+  initTelemetry,
+  MemoryEventBus,
+  MemoryQueueDriver,
+  recordVariationOverride,
+  withSpan,
+  type JobService,
+  type Telemetry,
+} from "@shortloop/pipeline";
 import {
   cassette,
   FakeYouTube,
@@ -13,10 +24,22 @@ import {
   type CassetteEntry,
   type YouTubeClient,
 } from "@shortloop/providers";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { channelAad, connectYouTubeChannel, disconnectChannel } from "./channels";
 import { requeueHeldPublishes } from "./publish";
 import { createWorker } from "./worker";
+
+// Spans from every test land here (E13-02); nothing is exported over the network.
+const spans = new InMemorySpanExporter();
+let telemetry: Telemetry;
+beforeAll(async () => {
+  telemetry = await initTelemetry({
+    serviceName: "worker-test",
+    env: {},
+    spanProcessors: [new SimpleSpanProcessor(spans)],
+  });
+});
+afterAll(() => telemetry.shutdown());
 
 let h: DbHandle;
 let dir: string;
@@ -30,6 +53,7 @@ beforeEach(async () => {
   h = openDb("memory://");
   await h.migrate();
   await seed(h.db);
+  spans.reset();
   dir = await mkdtemp(join(tmpdir(), "pub-"));
   storage = new LocalStorage(join(dir, "store"));
   driver = new MemoryQueueDriver();
@@ -320,6 +344,74 @@ describe("publish to YouTube (E8-02)", () => {
     const yt = new FakeYouTube();
     await publish(worker(yt));
     expect(yt.uploads[0]?.metadata.containsSyntheticMedia).toBe(true);
+  });
+});
+
+describe("explain a publish (E13-02)", () => {
+  it("a publish is traced end to end by its job id and explained from the audit log", async () => {
+    const jobs = worker(new FakeYouTube());
+    // What the web server function does: the request runs in a `publish.request` span.
+    const { job } = await withSpan("publish.request", {}, () => publish(jobs));
+    expect(job?.status, job?.error).toBe("succeeded");
+    const done = spans.getFinishedSpans();
+    const web = done.find((s) => s.name === "publish.request");
+    const worker_ = done.find((s) => s.name === "job.publish");
+    expect(web).toBeDefined();
+    expect(worker_?.spanContext().traceId).toBe(web?.spanContext().traceId);
+    expect(worker_?.attributes["shortloop.job_id"]).toBe(job?.id);
+
+    const x = await explainPublish(h.db, `pub_${CH}`);
+    expect(x.jobId).toBe(job?.id);
+    expect(x.traceId).toBe(web?.spanContext().traceId);
+    expect(x.checks).toEqual({ rights: "passed", variation: "passed" });
+    expect(x.assets.map((a) => a.assetId).sort()).toEqual([SEED.assetIds[0], SEED.assetIds[1]].sort());
+    expect(x.assets.every((a) => a.licence && a.attribution)).toBe(true);
+  });
+
+  it("an override of a blocked variation check is audited with the user id and shows in the explanation", async () => {
+    // An older script with the same hook and beats: the publish's script is a near-duplicate.
+    await h.db.insert(schema.scripts).values({
+      id: "scr_old",
+      projectId: SEED.projectId,
+      title: "Older octopus Short",
+      hook: "Why three hearts?",
+      beats: [{ id: "b1", text: "Why three hearts?", visualQuery: "octopus", estDurationMs: 2000 }],
+      cta: "Follow.",
+      language: "en",
+      wordCount: 4,
+      createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+    });
+    const script = await h.db.query.scripts.findFirst({ where: eq(schema.scripts.id, "scr_1") });
+    if (!script) throw new Error("no script");
+    const v = await checkVariation(h.db, SEED.userId, script);
+    expect(v.ok).toBe(false);
+
+    const blocked = await publish(worker(new FakeYouTube()));
+    expect(blocked.rec?.status).toBe("failed");
+    expect((await explainPublish(h.db, `pub_${CH}`)).checks.variation).toBe("failed");
+
+    await recordVariationOverride(h.db, SEED.userId, "scr_1", v);
+    const ev = await h.db.query.auditEvents.findFirst({
+      where: eq(schema.auditEvents.type, "variation_override"),
+    });
+    expect(ev).toMatchObject({ ownerId: SEED.userId, subjectId: "scr_1" });
+
+    // A publish job that fails for good marks the project failed (existing chain listener); re-approve, then retry.
+    await h.db
+      .update(schema.projects)
+      .set({ status: "approved" })
+      .where(eq(schema.projects.id, SEED.projectId));
+    const jobs = worker(new FakeYouTube());
+    await jobs.enqueue(
+      "publish",
+      { publishId: `pub_${CH}`, projectId: SEED.projectId, request: request() },
+      { idempotencyKey: "after-override", ownerId: SEED.userId },
+    );
+    await driver.drain();
+    const x = await explainPublish(h.db, `pub_${CH}`);
+    expect(x.status).toBe("published");
+    expect(x.checks).toEqual({ rights: "passed", variation: "overridden" });
+    expect(x.events.map((e) => e.type)).toContain("variation_override");
   });
 });
 

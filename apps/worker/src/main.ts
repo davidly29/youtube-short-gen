@@ -2,6 +2,7 @@ import { defaultDatabaseUrl, openDb } from "@shortloop/db";
 import {
   BullQueueDriver,
   expireCredits,
+  initTelemetry,
   MemoryEventBus,
   MemoryQueueDriver,
   RedisEventBus,
@@ -16,6 +17,8 @@ import { userKeyResolver } from "./keys";
 import { requeueHeldPublishes } from "./publish";
 import { createWorker } from "./worker";
 
+// Traces (OTEL_EXPORTER_OTLP_ENDPOINT) and errors (SENTRY_DSN) are only exported when configured.
+const telemetry = await initTelemetry({ serviceName: "shortloop-worker" });
 const redisUrl = process.env.REDIS_URL;
 const handle = openDb(defaultDatabaseUrl());
 await handle.migrate();
@@ -58,6 +61,7 @@ const shutdown = async () => {
   await driver.close();
   await bus.close();
   await handle.close();
+  await telemetry.shutdown();
   process.exit(0);
 };
 process.on("SIGTERM", () => void shutdown());

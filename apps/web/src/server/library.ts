@@ -4,6 +4,7 @@ import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, desc, eq, inArray, schema } from "@shortloop/db";
+import { recordAudit } from "@shortloop/pipeline";
 import { probeMedia } from "@shortloop/providers";
 import { z } from "zod";
 import { checkUpload, MAX_UPLOAD_BYTES, UPLOAD_TYPES, type UploadExt } from "../lib/upload-rules";
@@ -78,7 +79,7 @@ export async function completeUpload(userId: string, input: unknown) {
       width: probe.width,
       height: probe.height,
     });
-    await rt.db.insert(schema.auditEvents).values({
+    await recordAudit(rt.db, {
       ownerId: userId,
       type: "asset.upload_attested",
       subjectId: id,
