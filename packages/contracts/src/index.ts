@@ -18,10 +18,36 @@ export {
   ApiKeyInfo,
   ApiKeyProvider,
   DEFAULT_MODELS,
+  FREE,
+  ImageChoice,
+  KeyError,
+  KeyUnavailable,
+  LlmChoice,
   PROVIDER_CAPABILITIES,
   ProviderCapability,
+  ProviderErrorKind,
+  ProviderRouting,
+  resolveRouting,
   SaveApiKey,
+  SHORTLOOP,
+  SHORTLOOP_PREMIUM,
+  VoiceChoice,
+  type ResolvedRouting,
+  type RoutableKey,
 } from "./keys";
+export {
+  AiUsage,
+  costOf,
+  estimateTokens,
+  MANAGED_DENIAL_MESSAGE,
+  MANAGED_LIMITS,
+  MANAGED_MONTHLY_SHARE,
+  MANAGED_PRICES,
+  ManagedDenial,
+  ManagedTier,
+  PREMIUM_PER_SHORT_USD,
+  type ManagedLimits,
+} from "./managed";
 export { PLANS, PlanId, SubscriptionStatus, type BillingEvent, type Plan } from "./billing";
 export { TrendRegion, TrendSignal, TrendSource } from "./trends";
 export { AuditEvent, AuditEventType, TraceId } from "./audit";
