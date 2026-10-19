@@ -1,3 +1,4 @@
+import { recordAudit } from "./audit";
 import { schema, and, desc, eq, inArray, type Db } from "@shortloop/db";
 
 /** Above this cosine similarity a new script counts as a near-duplicate of a recent one. */
@@ -117,7 +118,7 @@ export async function recordVariationOverride(
   scriptId: string,
   result: VariationResult,
 ): Promise<void> {
-  await db.insert(schema.auditEvents).values({
+  await recordAudit(db, {
     ownerId,
     type: "variation_override",
     subjectId: scriptId,

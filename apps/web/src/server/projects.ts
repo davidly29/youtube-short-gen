@@ -8,6 +8,7 @@ import {
   checkVariation,
   NotPublishableError,
   policyCheckScript,
+  recordAudit,
   recordVariationOverride,
   scriptWordCount,
   targetWords,
@@ -441,7 +442,7 @@ export async function approve(userId: string, projectId: string) {
     .update(schema.projects)
     .set({ status: "approved", approvedAt: now })
     .where(eq(schema.projects.id, projectId));
-  await rt.db.insert(schema.auditEvents).values({
+  await recordAudit(rt.db, {
     ownerId: userId,
     type: "approve",
     subjectId: projectId,

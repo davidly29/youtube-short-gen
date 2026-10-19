@@ -12,7 +12,10 @@ import {
   nextQuotaWindow,
   quotaDay,
   quotaDayStart,
+  recordAudit,
   requiresAiDisclosure,
+  type PublishChecks,
+  type RightsEntry,
   youtubeMetadata,
   type JobHandler,
   type JobService,
@@ -84,6 +87,9 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         .set({ ...v, updatedAt: nowIso(now()) })
         .where(eq(schema.publishRecords.id, rec.id));
 
+    // What the checks found, recorded with the outcome so a publish can be explained later (E13-02).
+    const checks: PublishChecks = { rights: "pending", variation: "pending" };
+    let assetsUsed: RightsEntry[] = [];
     try {
       // 1. Checks: approved, every asset licensed, not a near-duplicate (unless the user overrode it, logged).
       const project = await db.query.projects.findFirst({ where: eq(schema.projects.id, input.projectId) });
@@ -101,14 +107,24 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         Asset.parse(toAsset(a)),
       );
       const manifest = buildRightsManifest(timeline, assets);
-      assertPublishable(manifest);
+      assetsUsed = manifest.entries;
+      try {
+        assertPublishable(manifest);
+      } catch (e) {
+        checks.rights = "failed";
+        throw e;
+      }
+      checks.rights = "passed";
       const script = project.scriptId
         ? await db.query.scripts.findFirst({ where: eq(schema.scripts.id, project.scriptId) })
         : undefined;
       if (script) {
         const v = await checkVariation(db, ownerId, script);
         const overridden = (await listOverrides(db, ownerId)).some((o) => o.subjectId === script.id);
+        checks.variation = v.ok ? "passed" : overridden ? "overridden" : "failed";
         if (!v.ok && !overridden) throw new PublishRefused(v.reasons.join(" "));
+      } else {
+        checks.variation = "passed"; // nothing to compare
       }
       await onProgress(0.1);
 
@@ -156,18 +172,19 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         publishedAt: metadata.publishAt ?? nowIso(now()),
         retryAt: null,
       });
-      await db.insert(schema.auditEvents).values({
+      await recordAudit(db, {
         ownerId,
         type: "publish.completed",
         subjectId: rec.id,
+        jobId: job.id,
         data: {
-          jobId: job.id,
           platform: "youtube",
           channelId: rec.channelId,
           videoId,
           status,
           containsSyntheticMedia: metadata.containsSyntheticMedia,
-          assets: manifest.entries.map((e) => ({ assetId: e.assetId, source: e.source })),
+          checks,
+          assets: manifest.entries,
         },
       });
       await onProgress(1);
@@ -181,6 +198,13 @@ export function publishHandler(deps: PublishDeps): JobHandler {
             ? e.message
             : String(e);
       await set({ status: "failed", error: message });
+      await recordAudit(db, {
+        ownerId,
+        type: "publish.failed",
+        subjectId: rec.id,
+        jobId: job.id,
+        data: { platform: "youtube", channelId: rec.channelId, error: message, checks, assets: assetsUsed },
+      });
       throw e instanceof ReconnectRequired || e instanceof PublishRefused ? new PublishRefused(message) : e;
     }
 

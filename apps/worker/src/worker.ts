@@ -2,6 +2,7 @@ import type { Db } from "@shortloop/db";
 import {
   JOB_TYPES,
   JobService,
+  reportError,
   type EventBus,
   type JobHandler,
   type JobType,
@@ -121,5 +122,9 @@ export function createWorker(deps: WorkerDeps): JobService {
   };
   for (const type of JOB_TYPES) jobs.register(type, chained[type]);
   jobs.onFinalFailure(productionFailureListener(deps.db));
+  // A job that used up its retries is worth a look: send it to Sentry (no-op without SENTRY_DSN).
+  jobs.onFinalFailure((job) =>
+    reportError(new Error(`job ${job.type} ${job.id} failed: ${job.error ?? "unknown"}`)),
+  );
   return jobs;
 }

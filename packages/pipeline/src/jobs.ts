@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { Job as JobSchema, type Job } from "@shortloop/contracts";
 import { and, type Db, eq, schema, sum, toJob } from "@shortloop/db";
+import { currentTraceparent, runWithTraceparent, withSpan } from "./tracing";
+
+/** Key in `jobs.input` carrying the enqueuer's W3C traceparent, so the worker continues the same trace. */
+export const TRACEPARENT_KEY = "_traceparent";
 
 export type JobType = Job["type"];
 type Status = Job["status"];
@@ -68,6 +72,8 @@ export class JobService {
     const existing = await this.findByKey(opts.idempotencyKey);
     if (existing) return existing;
     const id = `job_${randomUUID()}`;
+    const traceparent = currentTraceparent();
+    if (traceparent) input = { ...input, [TRACEPARENT_KEY]: traceparent };
     const inserted = await this.db
       .insert(schema.jobs)
       .values({
@@ -133,11 +139,18 @@ export class JobService {
     if (!handler) throw new Error(`no handler registered for ${row.type}`);
     await this.setStatus(jobId, "running", { error: null });
     try {
-      const output = await handler({
-        job: toJob({ ...row, status: "running" }),
-        ownerId: row.ownerId,
-        onProgress: (p) => this.onProgress(jobId, p),
-      });
+      const output = await runWithTraceparent(row.input[TRACEPARENT_KEY], () =>
+        withSpan(
+          `job.${row.type}`,
+          { "shortloop.job_id": jobId, "shortloop.job_type": row.type, "shortloop.attempt": attempt },
+          () =>
+            handler({
+              job: toJob({ ...row, status: "running" }),
+              ownerId: row.ownerId,
+              onProgress: (p) => this.onProgress(jobId, p),
+            }),
+        ),
+      );
       await this.setStatus(jobId, "succeeded", { output, progress: 1 });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
