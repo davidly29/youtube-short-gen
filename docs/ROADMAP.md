@@ -70,7 +70,7 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 | #24   | E9-01  | MCP server v1               | #19, #23   | done            |
 | #25   | E9-02  | Format playbooks            | #24        | in review (#81) |
 | #26   | E13-01 | Content policy checks       | #11        | done            |
-| #27   | E13-02 | Observability and audit log | #23        | in review (#PR) |
+| #27   | E13-02 | Observability and audit log | #23        | in review (#82) |
 | #52   | human  | YouTube quota extension     | owner      | open            |
 | #53   | human  | Meta/Instagram app review   | owner      | open            |
 
