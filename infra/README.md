@@ -34,6 +34,10 @@ Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set
 | `SHORTLOOP_SHARED_KEYS`                       | unset by default; `1` shares the operator's env AI keys with every user                       |
 | `YOUTUBE_API_KEY`                             | trend radar: YouTube most-popular metadata (worker); see `docs/setup/trends.md`               |
 | `TRENDS_REGIONS` / `TRENDS_CATEGORIES`        | trend radar regions (default `IE,GB,US`) and YouTube categories (default `27,28`)             |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`                 | optional, web + worker: OTLP/HTTP collector for traces; see `infra/otel/README.md`            |
+| `OTEL_EXPORTER_OTLP_HEADERS`                  | optional: collector auth headers, e.g. `x-api-key=...` (set in Railway only)                  |
+| `SENTRY_DSN`                                  | optional, web + worker: error reporting to Sentry; off when unset                             |
+| `SHORTLOOP_ENV`                               | optional: environment name on traces and Sentry events (e.g. `staging`)                       |
 
 Users add their own AI keys in Settings → API keys (ADR 0006); the operator pays only for free defaults.
 
