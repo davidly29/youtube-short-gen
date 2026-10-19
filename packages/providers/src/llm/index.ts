@@ -8,6 +8,18 @@ export { AnthropicLLM } from "./anthropic";
 export { OpenAILLM } from "./openai";
 export { GEMINI_TEXT_MODEL, GeminiLLM } from "./gemini";
 export { FakeLLM, FakeScriptLLM } from "./fake";
+export {
+  CassetteLLM,
+  CassetteMiss,
+  findSecrets,
+  hashRequest,
+  loadCassettes,
+  RECORD_HINT,
+  RecordingLLM,
+  toCassetteRequest,
+  type CassetteFile,
+  type CassetteRequest,
+} from "./cassette";
 
 /** LLM_PROVIDER=anthropic|openai (default: whichever key is set, Anthropic first). */
 export function llmFromEnv(env: NodeJS.ProcessEnv = process.env): LLM {

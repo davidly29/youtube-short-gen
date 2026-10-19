@@ -33,15 +33,15 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 
 ## S2
 
-| Issue | Ticket | Title                                                                | Blocked by | Status |
-| ----- | ------ | -------------------------------------------------------------------- | ---------- | ------ |
-| #11   | E4-01  | Topic to original script                                             | #2, #4     | done   |
-| #12   | E4-02  | Script variation guard                                               | #11        | done   |
-| #13   | E5-01  | Voiceover with word timings                                          | #11        | done   |
-| #14   | E5-02  | Beat-to-visual matcher                                               | #9, #13    | done   |
-| #15   | E5-03  | AI image generation adapter                                          | #2         | done   |
-| #61   | E4-01b | Record real-LLM cassettes for script generation (split from #11)     | #11, #49   | open   |
-| #62   | E5-01b | Forced-alignment fallback and timing accuracy check (split from #13) | #13        | open   |
+| Issue | Ticket | Title                                                                | Blocked by | Status          |
+| ----- | ------ | -------------------------------------------------------------------- | ---------- | --------------- |
+| #11   | E4-01  | Topic to original script                                             | #2, #4     | done            |
+| #12   | E4-02  | Script variation guard                                               | #11        | done            |
+| #13   | E5-01  | Voiceover with word timings                                          | #11        | done            |
+| #14   | E5-02  | Beat-to-visual matcher                                               | #9, #13    | done            |
+| #15   | E5-03  | AI image generation adapter                                          | #2         | done            |
+| #61   | E4-01b | Record real-LLM cassettes for script generation (split from #11)     | #11, #49   | in review (#85) |
+| #62   | E5-01b | Forced-alignment fallback and timing accuracy check (split from #13) | #13        | open            |
 
 ## S3
 
