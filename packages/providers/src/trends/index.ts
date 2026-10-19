@@ -1,3 +1,5 @@
+import { type FeedConfig, RssCollector } from "./rss";
+import feedsJson from "./feeds.json";
 import { type FetchLike, type TrendCollector } from "./collector";
 import { WikipediaPageviewsCollector } from "./wikipedia";
 import { YouTubePopularCollector } from "./youtube-popular";
@@ -17,12 +19,16 @@ export {
   WikipediaPageviewsCollector,
   type WikipediaPageviewsOptions,
 } from "./wikipedia";
+export { parseFeed, RssCollector, type FeedConfig, type FeedItem, type RssCollectorOptions } from "./rss";
 export { FakeTrendCollector } from "./fake";
+
+/** The reviewed niche feed list (owner-reviewed config; see feeds.json). */
+export const DEFAULT_FEEDS: readonly FeedConfig[] = feedsJson;
 
 /**
  * Platform trend collectors from env. Collection is platform-level (free official APIs, no user keys,
  * no credits). Without `YOUTUBE_API_KEY` the YouTube collector is skipped with a warning and the
- * Wikipedia collector still runs.
+ * Wikipedia and RSS collectors still run.
  */
 export function trendCollectorsFromEnv(
   env: Record<string, string | undefined> = process.env,
@@ -36,5 +42,6 @@ export function trendCollectorsFromEnv(
     warn("trends: YOUTUBE_API_KEY is not set, skipping the YouTube most-popular collector");
   }
   collectors.push(new WikipediaPageviewsCollector({ fetch: fetchImpl }));
+  collectors.push(new RssCollector({ feeds: DEFAULT_FEEDS, fetch: fetchImpl }));
   return collectors;
 }

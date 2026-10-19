@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { TrendSignal } from "@shortloop/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { extractKeywords, trendSignalId } from "./collector";
-import { trendCollectorsFromEnv } from "./index";
+import { DEFAULT_FEEDS, trendCollectorsFromEnv } from "./index";
 import { WikipediaPageviewsCollector } from "./wikipedia";
 import {
   QuotaBudgetError,
@@ -160,14 +160,16 @@ describe("helpers", () => {
     ]);
   });
 
-  it("without YOUTUBE_API_KEY the YouTube collector is skipped with a warning; Wikipedia remains", () => {
+  it("without YOUTUBE_API_KEY the YouTube collector is skipped with a warning; Wikipedia and RSS remain", () => {
     const warn = vi.fn();
     const sources = trendCollectorsFromEnv({}, fetch, warn).map((c) => c.source);
-    expect(sources).toEqual(["wikipedia"]);
+    expect(sources).toEqual(["wikipedia", "rss"]);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/YOUTUBE_API_KEY/));
     expect(trendCollectorsFromEnv({ YOUTUBE_API_KEY: "k" }, fetch, warn).map((c) => c.source)).toEqual([
       "youtube_popular",
       "wikipedia",
+      "rss",
     ]);
+    expect(DEFAULT_FEEDS.length).toBeGreaterThan(0);
   });
 });

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Fixture Science</title>
+  <link href="https://science.example.org/"/>
+  <updated>2026-10-19T07:00:00Z</updated>
+  <id>urn:fixture:science</id>
+  <entry>
+    <title>Astronomers spot water vapour on a temperate exoplanet</title>
+    <link rel="enclosure" type="image/jpeg" href="https://cdn.science.example.org/img/exoplanet.jpg"/>
+    <link rel="alternate" type="text/html" href="https://science.example.org/news/exoplanet-water"/>
+    <id>urn:fixture:science:1</id>
+    <published>2026-10-19T06:15:00Z</published>
+    <updated>2026-10-19T07:00:00Z</updated>
+    <category term="Astronomy"/>
+    <category term="Exoplanets"/>
+  </entry>
+  <entry>
+    <title type="html">Deep-sea microbes &lt;i&gt;eat&lt;/i&gt; plastic, study finds</title>
+    <link href="https://science.example.org/news/microbes-plastic"/>
+    <id>urn:fixture:science:2</id>
+    <updated>2026-10-18T11:00:00Z</updated>
+    <category term="Biology"/>
+  </entry>
+  <entry>
+    <title>Old news from the archive</title>
+    <link href="https://science.example.org/news/archive"/>
+    <id>urn:fixture:science:3</id>
+    <updated>2026-09-01T00:00:00Z</updated>
+  </entry>
+</feed>

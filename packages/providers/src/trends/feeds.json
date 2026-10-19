@@ -1,0 +1,62 @@
+[
+  {
+    "niche": "tech",
+    "name": "Ars Technica",
+    "feedUrl": "https://feeds.arstechnica.com/arstechnica/index",
+    "homepageUrl": "https://arstechnica.com/"
+  },
+  {
+    "niche": "tech",
+    "name": "The Verge",
+    "feedUrl": "https://www.theverge.com/rss/index.xml",
+    "homepageUrl": "https://www.theverge.com/"
+  },
+  {
+    "niche": "tech",
+    "name": "TechCrunch",
+    "feedUrl": "https://techcrunch.com/feed/",
+    "homepageUrl": "https://techcrunch.com/"
+  },
+  {
+    "niche": "science",
+    "name": "ScienceDaily (top science)",
+    "feedUrl": "https://www.sciencedaily.com/rss/top/science.xml",
+    "homepageUrl": "https://www.sciencedaily.com/"
+  },
+  {
+    "niche": "science",
+    "name": "Quanta Magazine",
+    "feedUrl": "https://www.quantamagazine.org/feed/",
+    "homepageUrl": "https://www.quantamagazine.org/"
+  },
+  {
+    "niche": "science",
+    "name": "NASA news releases",
+    "feedUrl": "https://www.nasa.gov/news-release/feed/",
+    "homepageUrl": "https://www.nasa.gov/"
+  },
+  {
+    "niche": "finance",
+    "name": "CNBC top news",
+    "feedUrl": "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "homepageUrl": "https://www.cnbc.com/"
+  },
+  {
+    "niche": "finance",
+    "name": "MarketWatch top stories",
+    "feedUrl": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+    "homepageUrl": "https://www.marketwatch.com/"
+  },
+  {
+    "niche": "history",
+    "name": "Smithsonian Magazine (history)",
+    "feedUrl": "https://www.smithsonianmag.com/rss/history/",
+    "homepageUrl": "https://www.smithsonianmag.com/history/"
+  },
+  {
+    "niche": "history",
+    "name": "HistoryExtra",
+    "feedUrl": "https://www.historyextra.com/feed/",
+    "homepageUrl": "https://www.historyextra.com/"
+  }
+]

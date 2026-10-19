@@ -17,6 +17,7 @@
     "@aws-sdk/client-s3": "^3.1152.0",
     "@aws-sdk/s3-request-presigner": "^3.1152.0",
     "@shortloop/contracts": "workspace:*",
+    "fast-xml-parser": "^5.11.2",
     "msedge-tts": "^2.1.0",
     "openai": "^7.38.0",
     "stripe": "^23.0.0",
