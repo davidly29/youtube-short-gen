@@ -51,7 +51,7 @@ describe("worker jobs", () => {
     await driver.drain();
     const done = await jobs.get(job.id);
     expect(done?.status).toBe("failed");
-    expect(done?.error).toMatch(/not implemented/);
+    expect(done?.error).toMatch(/no trend collectors configured/);
     expect((await jobs.get(pub.id))?.error).toMatch(/needs a Google OAuth client/);
   });
 

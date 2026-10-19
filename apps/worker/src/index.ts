@@ -23,3 +23,13 @@ export {
   disconnectChannel,
 } from "./channels";
 export { publishHandler, PublishRefused, requeueHeldPublishes, type PublishInput } from "./publish";
+export {
+  DEFAULT_TRENDS_CONFIG,
+  scheduleTrends,
+  startTrendSchedule,
+  trendsConfigFromEnv,
+  trendsHandler,
+  trendsJobKey,
+  type TrendsConfig,
+  type TrendsJobInput,
+} from "./trends";
