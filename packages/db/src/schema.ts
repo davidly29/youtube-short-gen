@@ -46,6 +46,12 @@ export const users = pgTable("users", {
   name: text("name"),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  /** "admin" for emails listed in ADMIN_EMAILS (synced at sign-in); everyone else "user". */
+  role: text("role").notNull().default("user"),
+  /** Unlimited Shorts (admins and beta access-code holders). They still use their own AI keys. */
+  creditExempt: boolean("credit_exempt").notNull().default(false),
+  /** The beta access code this user redeemed, if any (counts towards the code's limit). */
+  accessCode: text("access_code"),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 });

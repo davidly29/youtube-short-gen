@@ -1,6 +1,6 @@
 import { balance, openDb, schema, seed, SEED, type DbHandle } from "@shortloop/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { estimate, InsufficientCreditsError, refund, reserve, settle } from "./credits";
+import { estimate, InsufficientCreditsError, isCreditExempt, refund, reserve, settle } from "./credits";
 
 let h: DbHandle;
 beforeEach(async () => {
@@ -60,5 +60,21 @@ describe("reserve / settle / refund", () => {
     const results = await Promise.allSettled(ids.map((id) => reserve(h.db, SEED.userId, { short: 1 }, id)));
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(5);
     expect(await balance(h.db, SEED.userId, "short")).toBe(0);
+  });
+});
+
+describe("credit-exempt users (admins, beta access codes)", () => {
+  it("reserve holds nothing and never fails for lack of credits; settle and refund are no-ops", async () => {
+    const { eq } = await import("@shortloop/db");
+    await h.db.update(schema.users).set({ creditExempt: true }).where(eq(schema.users.id, SEED.userId));
+    const before = await balance(h.db, SEED.userId, "short");
+    await h.db
+      .insert(schema.jobs)
+      .values({ id: "job_x", ownerId: SEED.userId, type: "voice", input: {}, idempotencyKey: "kx" });
+    await reserve(h.db, SEED.userId, { short: 1000 }, "job_x");
+    await settle(h.db, "job_x", { short: 1 });
+    await refund(h.db, "job_x");
+    expect(await balance(h.db, SEED.userId, "short")).toBe(before);
+    expect(await isCreditExempt(h.db, SEED.userId)).toBe(true);
   });
 });

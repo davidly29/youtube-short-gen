@@ -44,7 +44,18 @@ async function balanceIn(tx: Db, ownerId: string, unit: CreditUnit): Promise<num
  * Hold credits for a job. Serialised per owner with a transaction-scoped advisory lock, so
  * concurrent reserves can never overdraw. Throws InsufficientCreditsError (code INSUFFICIENT_CREDITS).
  */
+/** Admins and beta access-code holders make Shorts without spending credits. */
+export async function isCreditExempt(db: Db, ownerId: string): Promise<boolean> {
+  const u = await db.query.users.findFirst({
+    where: eq(schema.users.id, ownerId),
+    columns: { creditExempt: true },
+  });
+  return u?.creditExempt === true;
+}
+
+/** Hold credits for a job. Credit-exempt users hold nothing (settle and refund are then no-ops). */
 export async function reserve(db: Db, ownerId: string, credits: Credits, jobId: string): Promise<void> {
+  if (await isCreditExempt(db, ownerId)) return;
   await (db as unknown as { transaction: (fn: (tx: Db) => Promise<void>) => Promise<void> }).transaction(
     async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ownerId}))`);
