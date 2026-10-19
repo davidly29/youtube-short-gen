@@ -18,6 +18,10 @@ export interface SynthesizeResult {
   words: TimedWord[];
   /** "provider" when the provider returned alignment, "estimated" when we spread words over the duration. */
   timing: "provider" | "estimated";
+  /** Who actually spoke it, when a wrapper may have fallen back to another provider (ADR 0007). */
+  provider?: string;
+  /** The voice actually used, when it differs from the requested one (fallback). */
+  voiceId?: string;
 }
 
 export interface Voice {

@@ -1,4 +1,10 @@
-import type { ApiKeyProvider } from "@shortloop/contracts";
+import {
+  resolveRouting,
+  type ApiKeyProvider,
+  type ProviderCapability,
+  type ProviderRouting,
+  type ResolvedRouting,
+} from "@shortloop/contracts";
 import { FakeImage, FalImage, GeminiImage, type ImageGen } from "../image";
 import { AnthropicLLM, FakeScriptLLM, GeminiLLM, OpenAILLM, type LLM } from "../llm";
 import { FakeStock, PexelsStock, PixabayStock, type StockProvider } from "../stock";
@@ -18,28 +24,28 @@ export interface ProviderSet {
   image?: ImageGen;
   tts?: TTS;
   stock: StockProvider[];
+  /** Which provider each job uses (own key, "shortloop" or "free"); the caller supplies shortloop and free. */
+  route: ResolvedRouting;
 }
 
-const LLM_PROVIDERS: ApiKeyProvider[] = ["anthropic", "openai", "gemini"];
-const IMAGE_PROVIDERS: ApiKeyProvider[] = ["fal", "gemini"];
-
-const newest = (keys: UserKey[], among: ApiKeyProvider[]) =>
-  keys.filter((k) => among.includes(k.provider)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+/** Users' keys carry their health so routing can skip a key that can't do a job (ADR 0007). */
+export type HealthyKey = UserKey & { unavailable?: readonly { capability: ProviderCapability }[] };
 
 /**
- * Build the providers a user's own keys unlock. When a user has several keys for one job (e.g. Anthropic and
- * Gemini for scripts), the most recently saved wins. `fake` swaps every adapter for its offline fake.
+ * Build the providers a user's own keys unlock, following their routing choices (Settings → API keys). Jobs routed
+ * to ShortLoop AI or to the free provider are left unset here; `route` tells the caller which to plug in.
+ * `fake` swaps every adapter for its offline fake.
  */
 export function providersFromKeys(
-  keys: UserKey[],
-  opts: { fetch?: typeof fetch; fake?: boolean } = {},
+  keys: HealthyKey[],
+  opts: { fetch?: typeof fetch; fake?: boolean; routing?: ProviderRouting; managed?: boolean } = {},
 ): ProviderSet {
   const f = opts.fetch ?? fetch;
-  const llmKey = newest(keys, LLM_PROVIDERS);
-  const imageKey = newest(keys, IMAGE_PROVIDERS);
-  const tts = keys.find((k) => k.provider === "elevenlabs");
-  const set: ProviderSet = { stock: [] };
+  const route = resolveRouting(keys, opts.routing ?? {}, { managed: opts.managed });
+  const keyFor = (p: string | undefined) => keys.find((k) => k.provider === p);
+  const set: ProviderSet = { stock: [], route };
 
+  const llmKey = keyFor(route.llm);
   if (llmKey) {
     set.llm = opts.fake
       ? new FakeScriptLLM()
@@ -49,6 +55,7 @@ export function providersFromKeys(
           ? new OpenAILLM(llmKey.key, llmKey.model)
           : new GeminiLLM(llmKey.key, llmKey.model, f);
   }
+  const imageKey = keyFor(route.image);
   if (imageKey) {
     set.image = opts.fake
       ? new FakeImage()
@@ -56,6 +63,7 @@ export function providersFromKeys(
         ? new FalImage(imageKey.key, imageKey.imageModel ?? imageKey.model, f)
         : new GeminiImage(imageKey.key, imageKey.imageModel, f);
   }
+  const tts = keyFor(route.tts);
   if (tts) set.tts = opts.fake ? new FakeTTS() : new ElevenLabsTTS(tts.key, tts.model, f);
   for (const k of keys) {
     if (k.provider === "pexels") set.stock.push(opts.fake ? new FakeStock() : new PexelsStock(k.key, f));
