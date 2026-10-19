@@ -1,4 +1,4 @@
-import type { Asset, Job, PublishRequest, Script, Timeline } from "./index";
+import type { Asset, Job, PublishRequest, Script, Timeline, TrendSignal } from "./index";
 
 /** Valid example objects. Tests and other packages may import these as known-good fixtures. */
 export const validAsset: Asset = {
@@ -80,4 +80,16 @@ export const validPublishRequest: PublishRequest = {
   privacy: "private",
   scheduledAt: "2026-10-20T18:00:00+01:00",
   aiDisclosure: true,
+};
+
+export const validTrendSignal: TrendSignal = {
+  id: "sig_1",
+  source: "youtube_popular",
+  region: "IE",
+  categoryId: "28",
+  title: "I built a tiny nuclear fusion reactor",
+  url: "https://www.youtube.com/watch?v=abc123",
+  keywords: ["nuclear", "fusion", "reactor"],
+  metric: 1_250_000,
+  observedAt: "2026-10-19T09:00:00Z",
 };
