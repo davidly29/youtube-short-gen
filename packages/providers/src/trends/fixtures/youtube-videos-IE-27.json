@@ -1,0 +1,27 @@
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "fixture-etag-27",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "id": "fx_edu_001",
+      "snippet": {
+        "title": "How The Roman Empire Actually Fell",
+        "tags": ["history", "roman empire"],
+        "categoryId": "27",
+        "thumbnails": { "high": { "url": "https://i.ytimg.com/vi/fx_edu_001/hqdefault.jpg" } }
+      },
+      "statistics": { "viewCount": "301877" }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "fx_edu_002",
+      "snippet": {
+        "title": "",
+        "categoryId": "27"
+      },
+      "statistics": { "viewCount": "12" }
+    }
+  ],
+  "pageInfo": { "totalResults": 2, "resultsPerPage": 25 }
+}
