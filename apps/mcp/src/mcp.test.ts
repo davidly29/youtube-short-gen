@@ -79,12 +79,13 @@ function stubServices(): ShortLoopServices & { published: string[] } {
 const auth = { token: "t", clientId: "agent", scopes: [], extra: { userId: "usr_1" } };
 
 describe("ShortLoop MCP server (E9-01)", () => {
-  it("lists all eleven tools with descriptions and JSON Schemas (what MCP Inspector shows)", async () => {
+  it("lists all thirteen tools with descriptions and JSON Schemas (what MCP Inspector shows)", async () => {
     const client = await connectInProcess(
       createShortLoopMcpHandler(() => stubServices()),
       auth,
     );
     const { tools } = await client.listTools();
+    expect(tools).toHaveLength(13);
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES].sort());
     for (const t of tools) {
       expect(t.description?.length, t.name).toBeGreaterThan(20);
