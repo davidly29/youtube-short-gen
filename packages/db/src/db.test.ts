@@ -56,6 +56,7 @@ describe("migrations", () => {
       "auth_sessions",
       "auth_verifications",
       "billing_events",
+      "briefs",
       "channels",
       "credit_grants",
       "credit_ledger",
@@ -74,7 +75,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(26);
+    expect(await tableNames()).toHaveLength(27);
   });
 });
 

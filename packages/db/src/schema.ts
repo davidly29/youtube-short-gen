@@ -13,7 +13,15 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { AudioClip, Beat, CaptionWord, Clip, Licence, PublishRequest } from "@shortloop/contracts";
+import type {
+  AudioClip,
+  Beat,
+  BriefItem,
+  CaptionWord,
+  Clip,
+  Licence,
+  PublishRequest,
+} from "@shortloop/contracts";
 
 const createdAt = () =>
   timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow();
@@ -120,6 +128,8 @@ export const channels = pgTable(
     secret: text("secret"),
     scopes: text("scopes"),
     status: channelStatus("status").notNull().default("connected"),
+    /** The niche the channel's daily brief covers (`DEFAULT_NICHES` id); no brief without one (E3-03). */
+    nicheId: text("niche_id"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
@@ -156,6 +166,8 @@ export const projects = pgTable(
       .references(() => users.id),
     title: text("title").notNull(),
     topic: text("topic"),
+    /** The trend topic this project was made from (E3-02 `Topic.id`); keeps it out of briefs for 14 days. */
+    topicId: text("topic_id"),
     status: projectStatus("status").notNull().default("draft"),
     settings: jsonb("settings").$type<ProjectSettings>().notNull().default({}),
     scriptId: text("script_id"),
@@ -581,4 +593,23 @@ export const trendSignals = pgTable(
     uniqueIndex("trend_signals_dedupe").on(t.source, t.region, t.categoryId, t.title, t.observedHour),
     index("trend_signals_observed_at").on(t.observedAt),
   ],
+);
+
+/** One daily brief per channel and UTC day (E3-03); re-running the job replaces it. */
+export const briefs = pgTable(
+  "briefs",
+  {
+    id: text("id").primaryKey(),
+    channelId: text("channel_id")
+      .notNull()
+      .references(() => channels.id, { onDelete: "cascade" }),
+    /** `YYYY-MM-DD` (UTC). */
+    date: text("date").notNull(),
+    items: jsonb("items").$type<BriefItem[]>().notNull().default([]),
+    generatedWith: text("generated_with").$type<"llm" | "template">().notNull(),
+    partial: boolean("partial").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("briefs_channel_date").on(t.channelId, t.date)],
 );
