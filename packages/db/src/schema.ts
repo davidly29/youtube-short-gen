@@ -132,6 +132,11 @@ export const channels = pgTable(
     status: channelStatus("status").notNull().default("connected"),
     /** The niche the channel's daily brief covers (`DEFAULT_NICHES` id); no brief without one (E3-03). */
     nicheId: text("niche_id"),
+    /**
+     * Whether the user picked this channel to stay active when they hold more channels than their plan allows
+     * (after a downgrade, E1-04). Ignored while they're within the limit.
+     */
+    active: boolean("active").notNull().default(true),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
