@@ -15,6 +15,7 @@ import {
   trendCollectorsFromEnv,
   youtubeFromEnv,
 } from "@shortloop/providers";
+import { startBriefSchedule } from "./brief";
 import { createResolver } from "./providers";
 import { requeueHeldPublishes } from "./publish";
 import { startTrendSchedule, trendsConfigFromEnv } from "./trends";
@@ -67,10 +68,14 @@ try {
   console.error("trend collection disabled:", e instanceof Error ? e.message : e);
 }
 
+// Daily brief per channel with a niche (E3-03), from 05:00 UTC; idempotent per channel and day.
+const stopBriefs = startBriefSchedule(jobs, handle.db);
+
 console.log(`worker started (${redisUrl ? "BullMQ" : "in-memory"} queues)`);
 
 const shutdown = async () => {
   stopTrends();
+  stopBriefs();
   clearInterval(expiry);
   clearInterval(sweep);
   await driver.close();

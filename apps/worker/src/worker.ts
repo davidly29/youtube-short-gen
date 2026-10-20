@@ -1,3 +1,4 @@
+import { SHORTLOOP } from "@shortloop/contracts";
 import { balance, type Db } from "@shortloop/db";
 import {
   InsufficientCreditsError,
@@ -21,6 +22,8 @@ import type {
   TTS,
   YouTubeClient,
 } from "@shortloop/providers";
+
+import { briefHandler, isBriefInput } from "./brief";
 import { addNotices, productionFailureListener, withProduction } from "./chain";
 import type { ResolveContext, ResolvedProviders } from "./providers";
 import { publishHandler } from "./publish";
@@ -64,6 +67,8 @@ export interface WorkerDeps {
   dailyUploadLimit?: number;
   /** Platform trend collectors (E3-01); without them the trends stage reports it isn't set up. */
   trendCollectors?: TrendCollector[];
+  /** Clock for time-windowed stages (daily brief); defaults to the system clock. */
+  now?: () => Date;
 }
 
 /** Shown when a stage needs a paid provider the user hasn't connected. */
@@ -183,9 +188,23 @@ export function createWorker(deps: WorkerDeps): JobService {
             "publish",
             "not set up (the server needs a Google OAuth client: GOOGLE_CLIENT_ID/SECRET)",
           ),
-    trends: deps.trendCollectors
-      ? trendsHandler(deps.db, deps.trendCollectors)
-      : unavailable("trends", "not set up (no trend collectors configured)"),
+    trends: (() => {
+      const collect = deps.trendCollectors
+        ? trendsHandler(deps.db, deps.trendCollectors)
+        : unavailable("trends", "not set up (no trend collectors configured)");
+      // Daily briefs (E3-03) share the trends queue. Angles use the owner's own LLM key only (BYOK),
+      // never a platform default; without one the free template is used.
+      const brief = briefHandler(deps.db, {
+        llmFor: async (ownerId) => {
+          if (!deps.resolveProviders) return (await deps.providersFor?.(ownerId))?.llm;
+          // Own key only: not ShortLoop AI (metered, platform-paid) and not the operator's shared key.
+          const p = await deps.resolveProviders({ ownerId });
+          return p.route.llm && p.route.llm !== SHORTLOOP ? p.llm : undefined;
+        },
+        now: deps.now,
+      });
+      return (ctx) => (isBriefInput(ctx.job.input) ? brief(ctx) : collect(ctx));
+    })(),
   };
   const chained: Record<JobType, JobHandler> = {
     ...handlers,

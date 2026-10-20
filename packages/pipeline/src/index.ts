@@ -14,4 +14,6 @@ export * from "./billing";
 export * from "./publish";
 export * from "./audit";
 export * from "./tracing";
+export * from "./trends/cluster";
+export * from "./brief";
 export * from "./managed";
