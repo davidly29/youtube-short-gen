@@ -50,7 +50,9 @@ test.describe("E1-04 channel limits per plan (fake Stripe + fake YouTube)", () =
     await expect(page.getByTestId("upgrade-link")).toHaveAttribute("href", "/billing");
     await page.goto("/api/channels/youtube/start");
     await expect(page).toHaveURL(/\/channels\?error=/);
-    await expect(page.getByText("Your Free plan includes 1 channel. Upgrade on the Billing page")).toBeVisible();
+    await expect(
+      page.getByText("Your Free plan includes 1 channel. Upgrade on the Billing page"),
+    ).toBeVisible();
 
     await page.goto("/billing");
     await page.getByTestId("subscribe-pro").click();
