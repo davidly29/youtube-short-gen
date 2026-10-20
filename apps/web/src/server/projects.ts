@@ -17,6 +17,7 @@ import {
   type RightsManifest,
 } from "@shortloop/pipeline";
 import { generateImageAsset, importStock, type StockResult } from "@shortloop/providers";
+import { addNotices } from "@shortloop/worker";
 import { z } from "zod";
 import { accessOf } from "./access";
 import { listChannels } from "./channels";
@@ -62,13 +63,16 @@ export async function credits(userId: string) {
 /** What this user can do right now: their own keys first, then the platform defaults. */
 export async function capabilities(userId: string) {
   const rt = await runtime();
-  const p = await rt.providersFor(userId);
+  const p = await rt.resolve({ ownerId: userId });
+  const tts = p.tts ?? rt.tts;
   return {
     aiScripts: Boolean(p.llm),
     llmProvider: p.llm?.provider,
-    stock: p.stock.map((s) => s.provider),
-    image: p.image.provider,
-    voices: p.tts.voices(),
+    stock: (p.stock ?? rt.stock).map((s) => s.provider),
+    image: (p.image ?? rt.image).provider,
+    voices: tts.voices(),
+    /** Which provider each job uses (own key, "shortloop" or "free"). ADR 0007. */
+    route: p.route,
     mode: rt.mode,
   };
 }
@@ -402,7 +406,7 @@ export async function swapVisual(
   const asset =
     choice.kind === "stock"
       ? await importStock(choice.result, userId, rt.storage)
-      : await generateImageAsset((await rt.providersFor(userId)).image, rt.storage, userId, {
+      : await aiSwapImage(userId, projectId, {
           prompt: choice.prompt || view.script?.beats[beatIndex]?.visualQuery || "abstract background",
           aspect: "9:16",
           style: view.project.settings.imageStyle,
@@ -429,6 +433,21 @@ export async function swapVisual(
       : c,
   );
   return rerender(userId, projectId, { ...view.timeline, video });
+}
+
+/**
+ * One AI image for a swap: follows the user's routing; ShortLoop AI counts it against the swap limit and falls back
+ * to the free provider when a limit is hit (ADR 0007). Any fallback is noted on the project.
+ */
+async function aiSwapImage(userId: string, projectId: string, req: Parameters<typeof generateImageAsset>[3]) {
+  const rt = await runtime();
+  const p = await rt.resolve({ ownerId: userId, projectId, swap: true });
+  const gen = p.image ?? rt.image;
+  try {
+    return await generateImageAsset(gen, rt.storage, userId, req);
+  } finally {
+    if (p.notices.length) await addNotices(rt.db, projectId, p.notices);
+  }
 }
 
 /** Approve for publishing: only when every asset is licensed. */

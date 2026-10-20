@@ -1,8 +1,16 @@
 "use client";
 import type { ApiKeyInfo } from "@shortloop/contracts";
-import { CheckCircle2, ExternalLink, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
+  KeyRound,
+  RotateCcw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
-import { deleteKeyAction, saveKeyAction } from "../../app/(app)/actions";
+import { deleteKeyAction, resetKeyAction, saveKeyAction } from "../../app/(app)/actions";
 import { cn } from "../lib/cn";
 import { PROVIDERS, type ProviderMeta } from "../lib/provider-meta";
 import { Badge, Button, Card, ErrorText, Input, Label } from "./ui";
@@ -41,7 +49,7 @@ function ProviderCard({
   const [model, setModel] = useState(saved?.model ?? "");
   const [imageModel, setImageModel] = useState(saved?.imageModel ?? "");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [busy, setBusy] = useState<"save" | "remove">();
+  const [busy, setBusy] = useState<"save" | "remove" | "reset">();
   const [error, setError] = useState<string>();
 
   async function save() {
@@ -58,6 +66,15 @@ function ProviderCard({
     setKey("");
     setEditing(false);
     onSaved(r.data);
+  }
+
+  async function reset() {
+    if (!saved) return;
+    setBusy("reset");
+    const r = await resetKeyAction(meta.id);
+    setBusy(undefined);
+    if (!r.ok) return setError(r.error);
+    onSaved({ ...saved, unavailable: [], lastError: undefined });
   }
 
   async function remove() {
@@ -97,6 +114,8 @@ function ProviderCard({
           </span>
         )}
       </div>
+
+      {saved && !editing && <KeyHealth meta={meta} saved={saved} busy={busy === "reset"} onReset={reset} />}
 
       {editing ? (
         <div className="mt-4 space-y-3">
@@ -192,5 +211,67 @@ function ProviderCard({
         </div>
       )}
     </Card>
+  );
+}
+
+const JOB_NAME: Record<string, string> = {
+  llm: "scripts",
+  image: "images",
+  tts: "voices",
+  stock: "stock footage",
+};
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+/** Key health (ADR 0007): jobs this key can't do, its last error, and when it last worked. */
+function KeyHealth({
+  meta,
+  saved,
+  busy,
+  onReset,
+}: {
+  meta: ProviderMeta;
+  saved: ApiKeyInfo;
+  busy: boolean;
+  onReset: () => Promise<void>;
+}) {
+  const unavailable = saved.unavailable ?? [];
+  return (
+    <div className="mt-3 space-y-2 text-sm">
+      {unavailable.map((u) => (
+        <div
+          key={u.capability}
+          role="status"
+          className="flex flex-wrap items-start gap-2 rounded-lg border border-warn/30 bg-warn/5 px-3 py-2"
+          data-testid={`key-${meta.id}-unavailable`}
+        >
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Not used for {JOB_NAME[u.capability] ?? u.capability}</p>
+            <p className="text-ink-soft">{u.reason}</p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => void onReset()}
+            loading={busy}
+            data-testid={`key-${meta.id}-retry`}
+          >
+            <RotateCcw className="size-4" aria-hidden /> Try again
+          </Button>
+        </div>
+      ))}
+      {!unavailable.length && saved.lastError && (
+        <p className="text-bad" data-testid={`key-${meta.id}-error`}>
+          Last error ({JOB_NAME[saved.lastError.capability] ?? saved.lastError.capability},{" "}
+          {when(saved.lastError.at)}): {saved.lastError.message}
+        </p>
+      )}
+      {saved.lastOkAt && (
+        <p className="text-xs text-ink-soft" data-testid={`key-${meta.id}-ok`}>
+          Last worked {when(saved.lastOkAt)}
+        </p>
+      )}
+    </div>
   );
 }

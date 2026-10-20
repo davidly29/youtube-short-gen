@@ -134,7 +134,7 @@ export class JobService {
   private async run(jobId: string, attempt: number): Promise<void> {
     const row = await this.db.query.jobs.findFirst({ where: eq(schema.jobs.id, jobId) });
     if (!row) throw new Error(`unknown job ${jobId}`);
-    if (row.status === "succeeded" || row.status === "cancelled") return;
+    if (row.status === "succeeded" || row.status === "cancelled" || row.status === "failed") return;
     const handler = this.handlers.get(row.type);
     if (!handler) throw new Error(`no handler registered for ${row.type}`);
     await this.setStatus(jobId, "running", { error: null });
@@ -154,7 +154,8 @@ export class JobService {
       await this.setStatus(jobId, "succeeded", { output, progress: 1 });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (attempt >= MAX_ATTEMPTS) {
+      // A bad key, used-up quota or blocked prompt won't fix itself: fail now instead of burning retries (ADR 0007).
+      if (attempt >= MAX_ATTEMPTS || isPermanentError(err)) {
         await this.setStatus(jobId, "failed", { error: message });
         await refundJob(this.db, jobId);
         const failed = await this.get(jobId);
@@ -194,6 +195,11 @@ export class JobService {
       ...(job.error ? { error: job.error } : {}),
     });
   }
+}
+
+/** Errors that retrying can't fix carry `permanent: true` (e.g. ProviderError for auth/quota/blocked). */
+export function isPermanentError(err: unknown): boolean {
+  return Boolean(err && typeof err === "object" && (err as { permanent?: unknown }).permanent === true);
 }
 
 /**

@@ -1,3 +1,4 @@
+import { ProviderError } from "../errors";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,7 @@ import {
   keyAad,
   last4,
   platformProvidersFromEnv,
+  managedProvidersFromEnv,
   providersFromKeys,
   SecretBox,
   secretBoxFromEnv,
@@ -79,11 +81,14 @@ describe("GeminiLLM", () => {
     expect(body.generationConfig.responseMimeType).toBe("application/json");
     expect(body.systemInstruction.parts[0]?.text).toContain("sys");
   });
-  it("surfaces API errors with Google's message", async () => {
+  it("turns a bad-key response into an actionable auth error that keeps Google's message", async () => {
     const { f } = recorder(() => json({ error: { message: "API key not valid" } }, 400));
-    await expect(
-      new GeminiLLM("bad", "m", f).json({ system: "", prompt: "", schema: z.object({}) }),
-    ).rejects.toThrow(/Gemini 400: API key not valid/);
+    const err = await new GeminiLLM("bad", "m", f)
+      .json({ system: "", prompt: "", schema: z.object({}) })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect(err).toMatchObject({ kind: "auth", provider: "gemini", status: 400, detail: "API key not valid" });
+    expect((err as Error).message).toMatch(/Google Gemini rejected your API key/);
   });
 });
 
@@ -152,20 +157,71 @@ describe("verifyApiKey", () => {
 
 describe("providersFromKeys", () => {
   const at = (s: number) => new Date(Date.UTC(2026, 9, 18, 0, 0, s)).toISOString();
-  it("unlocks only what the user has keys for; the newest LLM key wins; Gemini covers scripts and images", () => {
-    expect(providersFromKeys([])).toEqual({ stock: [] });
-    const set = providersFromKeys([
-      { provider: "anthropic", key: "a", updatedAt: at(1) },
-      { provider: "gemini", key: "g", model: "gem-text", imageModel: "gem-img", updatedAt: at(2) },
-      { provider: "pexels", key: "p", updatedAt: at(0) },
-    ]);
+  it("unlocks only what the user has keys for; the newest LLM key wins; Gemini does images only when picked", () => {
+    expect(providersFromKeys([])).toEqual({
+      stock: [],
+      route: { llm: undefined, image: "free", tts: "free" },
+    });
+    const keys = [
+      { provider: "anthropic" as const, key: "a", updatedAt: at(1) },
+      { provider: "gemini" as const, key: "g", model: "gem-text", imageModel: "gem-img", updatedAt: at(2) },
+      { provider: "pexels" as const, key: "p", updatedAt: at(0) },
+    ];
+    const set = providersFromKeys(keys);
     expect(set.llm).toMatchObject({ provider: "gemini", model: "gem-text" });
-    expect(set.image).toMatchObject({ provider: "gemini", model: "gem-img" });
+    expect(set.image).toBeUndefined(); // free images until the user picks Gemini for images
+    expect(set.route.image).toBe("free");
     expect(set.tts).toBeUndefined();
     expect(set.stock.map((s) => s.provider)).toEqual(["pexels"]);
+    expect(providersFromKeys(keys, { routing: { image: "gemini", llm: "anthropic" } })).toMatchObject({
+      llm: { provider: "anthropic" },
+      image: { provider: "gemini", model: "gem-img" },
+    });
     expect(providersFromKeys([{ provider: "elevenlabs", key: "e", updatedAt: at(0) }]).tts?.provider).toBe(
       "elevenlabs",
     );
+  });
+
+  it("skips a key marked unavailable for a job, and leaves ShortLoop AI jobs to the caller", () => {
+    const gemini = {
+      provider: "gemini" as const,
+      key: "g",
+      updatedAt: at(0),
+      unavailable: [{ capability: "image" as const }],
+    };
+    const set = providersFromKeys([gemini], { routing: { image: "gemini" } });
+    expect(set.image).toBeUndefined();
+    expect(set.route).toEqual({ llm: "gemini", image: "free", tts: "free" });
+    const paid = providersFromKeys([], { managed: true });
+    expect(paid.route).toEqual({ llm: "shortloop", image: "shortloop", tts: "shortloop" });
+    expect(paid.llm).toBeUndefined();
+  });
+});
+
+describe("managedProvidersFromEnv", () => {
+  it("is off without the kill switch, and offers only the jobs whose keys are set", () => {
+    expect(managedProvidersFromEnv({ MANAGED_GEMINI_API_KEY: "g" } as unknown as NodeJS.ProcessEnv)).toEqual(
+      {},
+    );
+    const m = managedProvidersFromEnv({
+      MANAGED_AI_ENABLED: "1",
+      MANAGED_FAL_KEY: "f",
+    } as unknown as NodeJS.ProcessEnv);
+    expect(m.image?.provider.provider).toBe("fal");
+    expect(m.llm).toBeUndefined();
+    expect(m.tts).toBeUndefined();
+    expect(m.image?.price({ images: 6 })).toBeCloseTo(0.036);
+    const all = managedProvidersFromEnv({
+      MANAGED_AI_ENABLED: "1",
+      MANAGED_GEMINI_API_KEY: "g",
+      MANAGED_FAL_KEY: "f",
+      MANAGED_ELEVENLABS_API_KEY: "e",
+    } as unknown as NodeJS.ProcessEnv);
+    expect([
+      all.llm?.provider.provider,
+      all.premiumImage?.provider.provider,
+      all.tts?.provider.provider,
+    ]).toEqual(["gemini", "gemini", "elevenlabs"]);
   });
 });
 

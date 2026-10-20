@@ -96,6 +96,17 @@ export function Studio({
         </Card>
       )}
 
+      {p.notices.length > 0 && (
+        <Card className="border-warn/30 bg-warn/5" data-testid="notices">
+          <h2 className="font-semibold">Good to know about this Short</h2>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-ink-soft">
+            {p.notices.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       {!busy && !hasVideo && (
         <>
           <ScriptPanel view={view} caps={caps} onChanged={refresh} />
