@@ -37,6 +37,8 @@ export default defineConfig({
       AUTH_RATE_LIMIT: "off",
       ADMIN_EMAILS: "owner-e2e@example.test",
       SHORTLOOP_ACCESS_CODES: "BETATEST1:2",
+      // ShortLoop AI on (fake providers): only admins and paying users get it (ADR 0007).
+      MANAGED_AI_ENABLED: "1",
     },
   },
 });

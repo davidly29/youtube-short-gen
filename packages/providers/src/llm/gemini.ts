@@ -1,4 +1,5 @@
-import { DEFAULT_MODELS } from "@shortloop/contracts";
+import { DEFAULT_MODELS, type ProviderCapability } from "@shortloop/contracts";
+import { httpError, ProviderError } from "../errors";
 import { JSON_ONLY, parseReply, type JsonRequest, type LLM } from "./llm";
 
 export const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta";
@@ -19,6 +20,7 @@ export async function geminiGenerate(
   apiKey: string,
   model: string,
   body: unknown,
+  capability: ProviderCapability = "llm",
 ): Promise<GenerateContentResponse> {
   const res = await fetchImpl(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
@@ -26,11 +28,15 @@ export async function geminiGenerate(
     headers: { "x-goog-api-key": apiKey, "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw await httpError("gemini", capability, res);
   const data = (await res.json().catch(() => ({}))) as GenerateContentResponse;
-  if (!res.ok)
-    throw new Error(`Gemini ${res.status}: ${data.error?.message?.slice(0, 200) ?? "request failed"}`);
   if (data.promptFeedback?.blockReason)
-    throw new Error(`Gemini blocked the request (${data.promptFeedback.blockReason})`);
+    throw new ProviderError({
+      kind: "blocked",
+      provider: "gemini",
+      capability,
+      detail: data.promptFeedback.blockReason,
+    });
   return data;
 }
 

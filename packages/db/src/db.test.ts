@@ -5,6 +5,7 @@ import { openDb, type DbHandle } from "./client";
 import { toAsset, toJob, toPublishRequest, toScript, toTimeline } from "./mappers";
 import { balance } from "./ledger";
 import {
+  aiUsage,
   assets,
   channels,
   creditLedger,
@@ -42,6 +43,7 @@ const tableNames = async () => {
 describe("migrations", () => {
   it("create every table on an empty database", async () => {
     expect(await tableNames()).toEqual([
+      "ai_usage",
       "assets",
       "audit_events",
       "auth_accounts",
@@ -62,6 +64,7 @@ describe("migrations", () => {
       "credit_ledger",
       "jobs",
       "projects",
+      "provider_routing",
       "publish_records",
       "scripts",
       "subscriptions",
@@ -75,7 +78,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(27);
+    expect(await tableNames()).toHaveLength(29);
   });
 });
 
@@ -202,6 +205,19 @@ describe("credit ledger", () => {
     await expect(h.db.update(creditLedger).set({ delta: 999 })).rejects.toThrow();
     await expect(h.db.delete(creditLedger)).rejects.toThrow();
     expect(await balance(h.db, SEED.userId, "short")).toBe(5);
+  });
+
+  it("ai_usage rows can't be edited", async () => {
+    await h.db.insert(aiUsage).values({
+      ownerId: SEED.userId,
+      capability: "image",
+      provider: "fal",
+      model: "fal-ai/flux/schnell",
+      units: 1,
+      costUsd: 0.006,
+    });
+    await expect(h.db.update(aiUsage).set({ costUsd: 0 })).rejects.toThrow();
+    expect((await h.db.select().from(aiUsage))[0]?.costUsd).toBe(0.006);
   });
 
   it("charges a job at most once per reason", async () => {

@@ -20,6 +20,7 @@ import {
   FakeYouTube,
   youtubeFromEnv,
   type YouTubeClient,
+  managedProvidersFromEnv,
   platformProvidersFromEnv,
   secretBoxFromEnv,
   storageFromEnv,
@@ -30,7 +31,13 @@ import {
   type Storage,
   type TTS,
 } from "@shortloop/providers";
-import { createWorker, requeueHeldPublishes, userKeyResolver } from "@shortloop/worker";
+import {
+  createResolver,
+  createWorker,
+  requeueHeldPublishes,
+  type ResolveContext,
+  type ResolvedProviders,
+} from "@shortloop/worker";
 
 export interface UserProviders {
   llm?: LLM;
@@ -61,6 +68,8 @@ export interface Runtime {
   fake: boolean;
   /** The providers a user's own keys unlock, layered over the platform defaults. */
   providersFor: (userId: string) => Promise<UserProviders>;
+  /** Full per-request resolution (routing, ShortLoop AI guardrails, free fallbacks, notices). ADR 0007. */
+  resolve: (ctx: ResolveContext) => Promise<ResolvedProviders>;
   /** "all-in-one": jobs run inside the web process (dev, e2e, single-container demo). */
   mode: "all-in-one" | "queue";
 }
@@ -89,15 +98,18 @@ async function build(): Promise<Runtime> {
   // Monthly credits that weren't used expire at the end of their billing period (no rollover).
   setInterval(() => void expireCredits(handle.db).catch((e) => console.error(e)), 10 * 60_000).unref();
   const youtube = fake() ? new FakeYouTube() : youtubeFromEnv();
-  const resolveOwn = userKeyResolver(handle.db, box, { fake: fake() });
+  // Each job and request follows its user's routing (ADR 0007): own keys, ShortLoop AI on paid plans (metered and
+  // capped), and the free providers as the fallback for images and voices.
+  const resolve = createResolver({
+    db: handle.db,
+    box,
+    platform: { llm, tts, image, stock },
+    managed: managedProvidersFromEnv(process.env, { fake: fake() }),
+    fake: fake(),
+  });
   const providersFor = async (userId: string): Promise<UserProviders> => {
-    const own = await resolveOwn(userId);
-    return {
-      llm: own.llm ?? llm,
-      tts: own.tts ?? tts,
-      image: own.image ?? image,
-      stock: own.stock?.length ? own.stock : stock,
-    };
+    const p = await resolve({ ownerId: userId });
+    return { llm: p.llm, tts: p.tts ?? tts, image: p.image ?? image, stock: p.stock ?? stock };
   };
   const redisUrl = process.env.REDIS_URL;
   let driver: QueueDriver;
@@ -116,7 +128,7 @@ async function build(): Promise<Runtime> {
       bus,
       storage,
       providers: { llm, tts, image, stock },
-      providersFor: resolveOwn,
+      resolveProviders: resolve,
       box,
       youtube,
       dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
@@ -145,6 +157,7 @@ async function build(): Promise<Runtime> {
     youtube,
     fake: fake(),
     providersFor,
+    resolve,
     mode: redisUrl ? "queue" : "all-in-one",
   };
 }

@@ -80,6 +80,32 @@ describe("failure handling", () => {
     expect(await balance(h.db, SEED.userId, "short")).toBe(5);
   });
 
+  it("fails a permanent error (bad key, no quota) on the first attempt and still refunds", async () => {
+    let attempts = 0;
+    const listener: string[] = [];
+    jobs.onFinalFailure((j) => void listener.push(j.id));
+    jobs.register("script", async () => {
+      attempts++;
+      throw Object.assign(new Error("Your Gemini key can't make images"), { permanent: true });
+    });
+    const job = await jobs.enqueue("script", {}, opts("script:permanent"));
+    await h.db.insert(schema.creditLedger).values({
+      ownerId: SEED.userId,
+      unit: "short",
+      delta: -1,
+      reason: "charge",
+      jobId: job.id,
+    });
+    await driver.drain();
+    expect(attempts).toBe(1);
+    expect(await jobs.get(job.id)).toMatchObject({
+      status: "failed",
+      error: "Your Gemini key can't make images",
+    });
+    expect(listener).toEqual([job.id]);
+    expect(await balance(h.db, SEED.userId, "short")).toBe(5);
+  });
+
   it("succeeds on a later attempt without refunding", async () => {
     let attempts = 0;
     jobs.register("voice", async () => {
