@@ -23,5 +23,15 @@ export {
   SaveApiKey,
 } from "./keys";
 export { PLANS, PlanId, SubscriptionStatus, type BillingEvent, type Plan } from "./billing";
-export { TrendRegion, TrendSignal, TrendSource } from "./trends";
+export {
+  DEFAULT_NICHES,
+  Niche,
+  NicheId,
+  Topic,
+  TopicSource,
+  TrendRegion,
+  TrendSignal,
+  TrendSource,
+} from "./trends";
+export { Brief, BriefDate, BriefItem, BriefSource, FormatSlug } from "./brief";
 export { AuditEvent, AuditEventType, TraceId } from "./audit";

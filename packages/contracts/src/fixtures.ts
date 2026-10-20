@@ -1,4 +1,4 @@
-import type { Asset, Job, PublishRequest, Script, Timeline, TrendSignal } from "./index";
+import type { Asset, Brief, Job, Niche, PublishRequest, Script, Timeline, Topic, TrendSignal } from "./index";
 
 /** Valid example objects. Tests and other packages may import these as known-good fixtures. */
 export const validAsset: Asset = {
@@ -92,4 +92,41 @@ export const validTrendSignal: TrendSignal = {
   keywords: ["nuclear", "fusion", "reactor"],
   metric: 1_250_000,
   observedAt: "2026-10-19T09:00:00Z",
+};
+
+export const validNiche: Niche = {
+  id: "science",
+  name: "Science",
+  keywords: ["fusion", "space", "physics"],
+  categoryIds: ["28"],
+};
+
+export const validTopic: Topic = {
+  id: "top_3f2a9c1d0b7e4a51",
+  nicheId: "science",
+  label: "Fusion Reactor Record",
+  keywords: ["fusion", "reactor", "record"],
+  velocity: 42.5,
+  signals24h: 12,
+  sources: [
+    { url: "https://www.example.com/fusion-record", title: "Fusion reactor sets a record", source: "rss" },
+    { title: "Nuclear fusion", source: "wikipedia" },
+  ],
+  firstSeen: "2026-10-18T22:00:00Z",
+};
+
+export const validBrief: Brief = {
+  id: "brief_1",
+  channelId: "ch_1",
+  date: "2026-10-20",
+  generatedWith: "template",
+  partial: false,
+  items: ["Fusion Reactor Record", "Mars Sample Return", "Quantum Chip Error"].map((label, i) => ({
+    topicId: `top_${i}`,
+    angle: `Why "${label}" is trending`,
+    hook: `${label}: here's what changed this week`,
+    format: "trend-explainer" as const,
+    whyNow: "12 signals in 24 h, 42.5× the weekly average",
+    sources: [{ url: `https://www.example.com/${i}`, title: label, source: "rss" as const }],
+  })),
 };

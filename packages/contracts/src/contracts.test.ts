@@ -19,9 +19,13 @@ import {
   validPublishRequest,
   validScript,
   validTimeline,
+  validBrief,
+  validNiche,
+  validTopic,
   validTrendSignal,
 } from "./fixtures";
-import { TrendSignal } from "./trends";
+import { DEFAULT_NICHES, Niche, Topic, TrendSignal } from "./trends";
+import { Brief, BriefItem, FormatSlug } from "./brief";
 
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
   expect(schema.safeParse(v).success).toBe(true);
@@ -175,5 +179,54 @@ describe("TrendSignal (E3-01)", () => {
     bad(TrendSignal, { ...validTrendSignal, metric: -1 });
     bad(TrendSignal, { ...validTrendSignal, title: "" });
     bad(TrendSignal, { ...validTrendSignal, observedAt: "this morning" });
+  });
+});
+
+describe("Niche and Topic (E3-02)", () => {
+  it("accepts a valid niche and every default niche", () => {
+    ok(Niche, validNiche);
+    for (const n of DEFAULT_NICHES) ok(Niche, n);
+    expect(DEFAULT_NICHES.map((n) => n.id)).toEqual(["tech", "science", "finance", "history"]);
+  });
+  it("rejects an upper-case id, no keywords and a non-numeric category", () => {
+    bad(Niche, { ...validNiche, id: "Science" });
+    bad(Niche, { ...validNiche, keywords: [] });
+    bad(Niche, { ...validNiche, categoryIds: ["science"] });
+  });
+  it("accepts a valid topic", () => ok(Topic, validTopic));
+  it("rejects labels outside 2–6 words, zero velocity, no sources and a bad source URL", () => {
+    bad(Topic, { ...validTopic, label: "Fusion" });
+    bad(Topic, { ...validTopic, label: "one two three four five six seven" });
+    bad(Topic, { ...validTopic, velocity: 0 });
+    bad(Topic, { ...validTopic, sources: [] });
+    bad(Topic, { ...validTopic, sources: [{ url: "nope", title: "x", source: "rss" }] });
+  });
+});
+
+describe("Brief (E3-03)", () => {
+  it("accepts a full brief and a partial one", () => {
+    ok(Brief, validBrief);
+    ok(Brief, { ...validBrief, items: validBrief.items.slice(0, 1), partial: true });
+    ok(Brief, { ...validBrief, items: [], partial: true });
+  });
+  it("rejects a short brief not marked partial, a partial one with 3 items, and more than 5 items", () => {
+    bad(Brief, { ...validBrief, items: validBrief.items.slice(0, 2) });
+    bad(Brief, { ...validBrief, partial: true });
+    const item = validBrief.items[0];
+    bad(Brief, { ...validBrief, items: [item, item, item, item, item, item] });
+  });
+  it("rejects an item without sources, an unknown format, a long hook and a bad date", () => {
+    const item = validBrief.items[0];
+    ok(BriefItem, item);
+    bad(BriefItem, { ...item, sources: [] });
+    bad(BriefItem, { ...item, format: "listicle" });
+    bad(BriefItem, {
+      ...item,
+      hook: "one two three four five six seven eight nine ten eleven twelve thirteen",
+    });
+    bad(Brief, { ...validBrief, date: "20 Oct" });
+  });
+  it("uses the playbook slugs", () => {
+    expect(FormatSlug.options).toEqual(["trend-explainer", "myth-vs-fact", "top-3-list", "news-in-60s"]);
   });
 });
