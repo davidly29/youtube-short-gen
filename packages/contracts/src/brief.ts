@@ -13,6 +13,17 @@ export const BriefSource = z.object({
 });
 export type BriefSource = z.infer<typeof BriefSource>;
 
+/**
+ * Text we already hold about a source, used to fact-check a script (E3-04). `text` is the RSS item's
+ * description or summary, or the title when there is nothing else. Never fetched just for grounding.
+ */
+export const GroundingSource = z.object({
+  url: z.url(),
+  title: z.string().min(1).max(500),
+  text: z.string().min(1).max(5000),
+});
+export type GroundingSource = z.infer<typeof GroundingSource>;
+
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 /** One ready-to-make angle in a daily brief (E3-03). */
