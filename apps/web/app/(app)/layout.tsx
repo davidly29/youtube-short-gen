@@ -1,4 +1,13 @@
-import { Coins, FolderOpen, ImageIcon, KeyRound, MonitorPlay, Plus, ShieldCheck } from "lucide-react";
+import {
+  Coins,
+  FolderOpen,
+  ImageIcon,
+  KeyRound,
+  MonitorPlay,
+  Plus,
+  ShieldCheck,
+  Sunrise,
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "../../src/components/sign-out";
@@ -8,6 +17,7 @@ import { credits } from "../../src/server/projects";
 export const dynamic = "force-dynamic";
 
 const NAV = [
+  { href: "/today", label: "Today", icon: Sunrise },
   { href: "/projects", label: "Projects", icon: FolderOpen },
   { href: "/library", label: "Library", icon: ImageIcon },
   { href: "/channels", label: "Channels", icon: MonitorPlay },

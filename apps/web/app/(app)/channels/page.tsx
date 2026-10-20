@@ -2,7 +2,9 @@ import { CheckCircle2, ShieldCheck, MonitorPlay } from "lucide-react";
 import { ChannelList } from "../../../src/components/channels";
 import { Card, ErrorText } from "../../../src/components/ui";
 import { requireUser } from "../../../src/server/auth";
+import { getTodayBrief, NICHE_OPTIONS } from "../../../src/server/brief";
 import { listChannels, youtubeConfigured } from "../../../src/server/channels";
+import { NicheSelect } from "../today/niche-select";
 
 export default async function ChannelsPage({
   searchParams,
@@ -10,10 +12,11 @@ export default async function ChannelsPage({
   searchParams: Promise<{ connected?: string; error?: string }>;
 }) {
   const user = await requireUser();
-  const [channels, configured, q] = await Promise.all([
+  const [channels, configured, q, niches] = await Promise.all([
     listChannels(user.id),
     youtubeConfigured(),
     searchParams,
+    getTodayBrief(user.id),
   ]);
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -58,6 +61,22 @@ export default async function ChannelsPage({
         </div>
       </Card>
       <ChannelList initial={channels} />
+      {niches.length > 0 && (
+        <Card data-testid="channel-niches">
+          <h2 className="font-semibold">Daily brief niche</h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            Each channel gets fresh angles every morning on Today, from what’s trending in its niche.
+          </p>
+          <div className="mt-4 space-y-4">
+            {niches.map(({ channel, niche }) => (
+              <div key={channel.id}>
+                <p className="mb-1 text-sm font-medium">{channel.title}</p>
+                <NicheSelect channelId={channel.id} current={niche?.id} options={NICHE_OPTIONS} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
