@@ -1,0 +1,79 @@
+{
+  "name": "bee-decline",
+  "script": {
+    "id": "scr_ground_08",
+    "projectId": "prj_ground_08",
+    "title": "What is happening to bees",
+    "hook": "Half the bees are gone.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "Half the bees are gone.",
+        "visualQuery": "What is happening to bees, scene 1",
+        "estDurationMs": 1923
+      },
+      {
+        "id": "b2",
+        "text": "US beekeepers lost 48% of colonies last winter, a survey found.",
+        "visualQuery": "What is happening to bees, scene 2",
+        "estDurationMs": 4231
+      },
+      {
+        "id": "b3",
+        "text": "Phone signals are the main cause. [verify]",
+        "visualQuery": "What is happening to bees, scene 3",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b4",
+        "text": "Without bees, we would lose a third of our food. [verify]",
+        "visualQuery": "What is happening to bees, scene 4",
+        "estDurationMs": 4231
+      },
+      {
+        "id": "b5",
+        "text": "Plant flowers this weekend.",
+        "visualQuery": "What is happening to bees, scene 5",
+        "estDurationMs": 1538
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 41
+  },
+  "sources": [
+    {
+      "url": "https://env.example.org/bees",
+      "title": "Beekeepers report 48% winter colony losses",
+      "text": "US beekeepers lost 48% of managed colonies last winter, according to an annual survey."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://env.example.org/bees"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b5": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\", \"b4\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://env.example.org/bees\"}"],
+      "b3": ["{\"verdict\": \"not_supported\"}"],
+      "b4": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}

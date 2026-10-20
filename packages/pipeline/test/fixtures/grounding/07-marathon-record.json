@@ -1,0 +1,68 @@
+{
+  "name": "marathon-record",
+  "script": {
+    "id": "scr_ground_07",
+    "projectId": "prj_ground_07",
+    "title": "The marathon record",
+    "hook": "Two hours. That was the wall.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "Two hours. That was the wall.",
+        "visualQuery": "The marathon record, scene 1",
+        "estDurationMs": 2308
+      },
+      {
+        "id": "b2",
+        "text": "A runner just finished Chicago in 2:00:35, a world record. [verify]",
+        "visualQuery": "The marathon record, scene 2",
+        "estDurationMs": 4231
+      },
+      {
+        "id": "b3",
+        "text": "He trained by running 300 kilometres a week. [verify]",
+        "visualQuery": "The marathon record, scene 3",
+        "estDurationMs": 3462
+      },
+      {
+        "id": "b4",
+        "text": "Could you run one kilometre at that pace?",
+        "visualQuery": "The marathon record, scene 4",
+        "estDurationMs": 3077
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 37
+  },
+  "sources": [
+    {
+      "url": "https://sport.example.com/marathon-record",
+      "title": "Runner breaks marathon world record in Chicago",
+      "text": "The runner finished the Chicago marathon in 2:00:35, a world record."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://sport.example.com/marathon-record"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://sport.example.com/marathon-record\"}"],
+      "b3": ["oops", "still not json"]
+    }
+  }
+}

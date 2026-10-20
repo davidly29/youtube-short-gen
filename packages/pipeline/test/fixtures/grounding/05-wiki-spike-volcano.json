@@ -1,0 +1,73 @@
+{
+  "name": "wiki-spike-volcano",
+  "script": {
+    "id": "scr_ground_05",
+    "projectId": "prj_ground_05",
+    "title": "The volcano everyone is searching for",
+    "hook": "This volcano woke up after 40 years.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "This volcano woke up after 40 years.",
+        "visualQuery": "The volcano everyone is searching for, scene 1",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b2",
+        "text": "Its ash cloud reached 12 kilometres and closed two airports. [verify]",
+        "visualQuery": "The volcano everyone is searching for, scene 2",
+        "estDurationMs": 4231
+      },
+      {
+        "id": "b3",
+        "text": "It is the most dangerous volcano on Earth. [verify]",
+        "visualQuery": "The volcano everyone is searching for, scene 3",
+        "estDurationMs": 3462
+      },
+      {
+        "id": "b4",
+        "text": "Here is what happens next.",
+        "visualQuery": "The volcano everyone is searching for, scene 4",
+        "estDurationMs": 1923
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 35
+  },
+  "sources": [
+    {
+      "url": "https://en.wikipedia.org/wiki/Example_Volcano",
+      "title": "Example Volcano",
+      "text": "Example Volcano"
+    },
+    {
+      "url": "https://news.example.org/volcano-eruption",
+      "title": "Example Volcano erupts after 40 quiet years",
+      "text": "Example Volcano erupted on Monday for the first time in 40 years, sending ash 12 kilometres high and closing two airports."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://news.example.org/volcano-eruption"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{not json", "{\"factual\": [\"b2\", \"b3\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://news.example.org/volcano-eruption\"}"],
+      "b3": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}

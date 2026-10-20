@@ -1,0 +1,79 @@
+{
+  "name": "old-library",
+  "script": {
+    "id": "scr_ground_09",
+    "projectId": "prj_ground_09",
+    "title": "The world's oldest library",
+    "hook": "This library is over 1,100 years old.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "This library is over 1,100 years old.",
+        "visualQuery": "The world's oldest library, scene 1",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b2",
+        "text": "The al-Qarawiyyin library in Fez was founded in 859. [verify]",
+        "visualQuery": "The world's oldest library, scene 2",
+        "estDurationMs": 3846
+      },
+      {
+        "id": "b3",
+        "text": "It holds a 9th-century Quran written on camel skin.",
+        "visualQuery": "The world's oldest library, scene 3",
+        "estDurationMs": 3462
+      },
+      {
+        "id": "b4",
+        "text": "Its founder was a woman named Fatima.",
+        "visualQuery": "The world's oldest library, scene 4",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b5",
+        "text": "Which library would you visit?",
+        "visualQuery": "The world's oldest library, scene 5",
+        "estDurationMs": 1923
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 41
+  },
+  "sources": [
+    {
+      "url": "https://history.example.com/library",
+      "title": "Restored library in Fez reopens",
+      "text": "The al-Qarawiyyin library in Fez, founded in 859, has reopened after restoration."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://history.example.com/library"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b5": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://history.example.com/library\"}"],
+      "b3": ["{\"verdict\": \"not_supported\"}"],
+      "b4": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}

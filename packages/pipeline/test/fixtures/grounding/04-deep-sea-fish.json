@@ -1,0 +1,77 @@
+{
+  "name": "deep-sea-fish",
+  "script": {
+    "id": "scr_ground_04",
+    "projectId": "prj_ground_04",
+    "title": "The fish that lives deepest",
+    "hook": "Something is swimming eight kilometres under the sea.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "Something is swimming eight kilometres under the sea.",
+        "visualQuery": "The fish that lives deepest, scene 1",
+        "estDurationMs": 3077
+      },
+      {
+        "id": "b2",
+        "text": "A snailfish was filmed at 8,336 metres, the deepest fish on camera. [verify]",
+        "visualQuery": "The fish that lives deepest, scene 2",
+        "estDurationMs": 5000
+      },
+      {
+        "id": "b3",
+        "text": "It glows bright red to attract prey.",
+        "visualQuery": "The fish that lives deepest, scene 3",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b4",
+        "text": "Imagine the pressure down there.",
+        "visualQuery": "The fish that lives deepest, scene 4",
+        "estDurationMs": 1923
+      },
+      {
+        "id": "b5",
+        "text": "Follow for more ocean mysteries.",
+        "visualQuery": "The fish that lives deepest, scene 5",
+        "estDurationMs": 1923
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 41
+  },
+  "sources": [
+    {
+      "url": "https://science.example.org/deep-fish",
+      "title": "Snailfish filmed at record 8,336 metres",
+      "text": "A juvenile snailfish was filmed at 8,336 metres in the Izu-Ogasawara Trench, the deepest fish ever recorded on camera."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://science.example.org/deep-fish"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": false
+    },
+    "b5": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://science.example.org/deep-fish\"}"],
+      "b3": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}
