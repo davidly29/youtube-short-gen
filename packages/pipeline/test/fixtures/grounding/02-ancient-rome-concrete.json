@@ -1,0 +1,79 @@
+{
+  "name": "ancient-rome-concrete",
+  "script": {
+    "id": "scr_ground_02",
+    "projectId": "prj_ground_02",
+    "title": "Why Roman concrete lasts",
+    "hook": "Roman buildings are still standing. Ours crumble.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "Roman buildings are still standing. Ours crumble.",
+        "visualQuery": "Why Roman concrete lasts, scene 1",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b2",
+        "text": "Roman concrete contains lime clasts that heal cracks when water gets in.",
+        "visualQuery": "Why Roman concrete lasts, scene 2",
+        "estDurationMs": 4615
+      },
+      {
+        "id": "b3",
+        "text": "The Pantheon dome has never needed a single repair.",
+        "visualQuery": "Why Roman concrete lasts, scene 3",
+        "estDurationMs": 3462
+      },
+      {
+        "id": "b4",
+        "text": "Engineers now copy the recipe for modern buildings. [verify]",
+        "visualQuery": "Why Roman concrete lasts, scene 4",
+        "estDurationMs": 3462
+      },
+      {
+        "id": "b5",
+        "text": "Would you live in a Roman-style house?",
+        "visualQuery": "Why Roman concrete lasts, scene 5",
+        "estDurationMs": 2692
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 47
+  },
+  "sources": [
+    {
+      "url": "https://history.example.com/roman-concrete",
+      "title": "Study finds lime clasts help Roman concrete heal itself",
+      "text": "Researchers found that lime clasts in Roman concrete react with water to fill cracks, helping structures self-heal over centuries."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://history.example.com/roman-concrete"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b5": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\", \"b4\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://history.example.com/roman-concrete\"}"],
+      "b3": ["{\"verdict\": \"not_supported\"}"],
+      "b4": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}

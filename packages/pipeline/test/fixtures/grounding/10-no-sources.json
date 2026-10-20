@@ -1,0 +1,62 @@
+{
+  "name": "no-sources",
+  "script": {
+    "id": "scr_ground_10",
+    "projectId": "prj_ground_10",
+    "title": "A trend with no text to check against",
+    "hook": "Everyone is talking about this.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "Everyone is talking about this.",
+        "visualQuery": "A trend with no text to check against, scene 1",
+        "estDurationMs": 1923
+      },
+      {
+        "id": "b2",
+        "text": "Sales jumped 300% in one week. [verify]",
+        "visualQuery": "A trend with no text to check against, scene 2",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b3",
+        "text": "Experts expect it to last all year.",
+        "visualQuery": "A trend with no text to check against, scene 3",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b4",
+        "text": "Follow for the update.",
+        "visualQuery": "A trend with no text to check against, scene 4",
+        "estDurationMs": 1538
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 26
+  },
+  "sources": [],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b4": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"not_supported\"}"],
+      "b3": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}

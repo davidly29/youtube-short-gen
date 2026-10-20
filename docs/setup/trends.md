@@ -34,8 +34,11 @@ above 500 units/day per region and logs `trend collection disabled`.
 
 ## Where it runs
 
-The hourly schedule starts in the standalone worker (`apps/worker/src/main.ts`). Staging currently runs jobs inside
-the `web` service (no `REDIS_URL`), which does not start the trend schedule yet; wiring it there is a follow-up.
+With `REDIS_URL` set (queue mode), the hourly schedule starts in the standalone worker (`apps/worker/src/main.ts`)
+and the web app only enqueues. Without it (all-in-one mode, as on staging today), the `web` service runs jobs itself
+and starts the same hourly schedule once per process (E3-01e), with the same `TRENDS_*` and `YOUTUBE_API_KEY`
+variables, set on the `web` service. With `SHORTLOOP_FAKE_PROVIDERS=1` it uses a fake collector and makes no network
+calls.
 
 ## Changing the feed list
 

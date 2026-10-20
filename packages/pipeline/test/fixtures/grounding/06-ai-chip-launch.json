@@ -1,0 +1,90 @@
+{
+  "name": "ai-chip-launch",
+  "script": {
+    "id": "scr_ground_06",
+    "projectId": "prj_ground_06",
+    "title": "The new AI chip",
+    "hook": "A new chip just doubled AI speed.",
+    "beats": [
+      {
+        "id": "b1",
+        "text": "A new chip just doubled AI speed.",
+        "visualQuery": "The new AI chip, scene 1",
+        "estDurationMs": 2692
+      },
+      {
+        "id": "b2",
+        "text": "It is built on a 3-nanometre process. [verify]",
+        "visualQuery": "The new AI chip, scene 2",
+        "estDurationMs": 3077
+      },
+      {
+        "id": "b3",
+        "text": "The company says it is twice as fast at the same power.",
+        "visualQuery": "The new AI chip, scene 3",
+        "estDurationMs": 4615
+      },
+      {
+        "id": "b4",
+        "text": "It will be in every phone by next year. [verify]",
+        "visualQuery": "The new AI chip, scene 4",
+        "estDurationMs": 3846
+      },
+      {
+        "id": "b5",
+        "text": "It costs less than a hundred dollars to make.",
+        "visualQuery": "The new AI chip, scene 5",
+        "estDurationMs": 3462
+      },
+      {
+        "id": "b6",
+        "text": "Would you upgrade?",
+        "visualQuery": "The new AI chip, scene 6",
+        "estDurationMs": 1154
+      }
+    ],
+    "cta": "Follow for more.",
+    "language": "en",
+    "wordCount": 52
+  },
+  "sources": [
+    {
+      "url": "https://tech.example.com/chip-launch",
+      "title": "Chipmaker unveils 3-nanometre AI processor",
+      "text": "The company unveiled a 3-nanometre AI processor it says is twice as fast as last year's model at the same power."
+    }
+  ],
+  "labels": {
+    "b1": {
+      "factual": false
+    },
+    "b2": {
+      "factual": true,
+      "supportedBy": "https://tech.example.com/chip-launch"
+    },
+    "b3": {
+      "factual": true,
+      "supportedBy": "https://tech.example.com/chip-launch"
+    },
+    "b4": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b5": {
+      "factual": true,
+      "supportedBy": null
+    },
+    "b6": {
+      "factual": false
+    }
+  },
+  "replies": {
+    "classify": ["{\"factual\": [\"b2\", \"b3\", \"b4\", \"b5\"]}"],
+    "judge": {
+      "b2": ["{\"verdict\": \"supported\", \"url\": \"https://tech.example.com/chip-launch\"}"],
+      "b3": ["{\"verdict\": \"supported\", \"url\": \"https://tech.example.com/chip-launch\"}"],
+      "b4": ["{\"verdict\": \"not_supported\"}"],
+      "b5": ["{\"verdict\": \"not_supported\"}"]
+    }
+  }
+}

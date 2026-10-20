@@ -59,5 +59,5 @@ export {
   TrendSignal,
   TrendSource,
 } from "./trends";
-export { Brief, BriefDate, BriefItem, BriefSource, FormatSlug } from "./brief";
+export { Brief, BriefDate, BriefItem, BriefSource, FormatSlug, GroundingSource } from "./brief";
 export { AuditEvent, AuditEventType, TraceId } from "./audit";

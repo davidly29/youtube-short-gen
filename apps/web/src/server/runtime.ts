@@ -1,5 +1,5 @@
 import "server-only";
-import { defaultDatabaseUrl, openDb, type DbHandle } from "@shortloop/db";
+import { defaultDatabaseUrl, openDb, type Db, type DbHandle } from "@shortloop/db";
 import {
   BullQueueDriver,
   expireCredits,
@@ -15,6 +15,7 @@ import {
   billingFromEnv,
   FakeBilling,
   FakeImage,
+  FakeTrendCollector,
   FakeTTS,
   type BillingProvider,
   FakeYouTube,
@@ -29,12 +30,16 @@ import {
   type SecretBox,
   type StockProvider,
   type Storage,
+  type TrendCollector,
+  trendCollectorsFromEnv,
   type TTS,
 } from "@shortloop/providers";
 import {
   createResolver,
   createWorker,
   requeueHeldPublishes,
+  startTrendSchedule,
+  trendsConfigFromEnv,
   type ResolveContext,
   type ResolvedProviders,
 } from "@shortloop/worker";
@@ -75,6 +80,31 @@ export interface Runtime {
 }
 
 const fake = () => process.env.SHORTLOOP_FAKE_PROVIDERS === "1";
+
+/** Trend collectors for the in-process worker (E3-01e): fakes in fake mode, so e2e makes no network calls. */
+export function allInOneTrendCollectors(isFake: boolean): TrendCollector[] {
+  return isFake ? [new FakeTrendCollector()] : trendCollectorsFromEnv();
+}
+
+/**
+ * Hourly trend collection for the all-in-one runtime (E3-01e). Queue mode does nothing: the worker
+ * service schedules. A bad TRENDS_* value disables collection with a log line, as the worker does.
+ * Returns a stop function.
+ */
+export function startAllInOneTrends(
+  mode: Runtime["mode"],
+  jobs: JobService,
+  db: Db,
+  env: Record<string, string | undefined> = process.env,
+): () => void {
+  if (mode !== "all-in-one") return () => undefined;
+  try {
+    return startTrendSchedule(jobs, db, trendsConfigFromEnv(env));
+  } catch (e) {
+    console.error("trend collection disabled:", e instanceof Error ? e.message : e);
+    return () => undefined;
+  }
+}
 
 async function build(): Promise<Runtime> {
   const handle = openDb(process.env.DATABASE_URL ?? defaultDatabaseUrl());
@@ -134,6 +164,7 @@ async function build(): Promise<Runtime> {
       dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
         ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
         : undefined,
+      trendCollectors: allInOneTrendCollectors(fake()),
     });
     // All-in-one mode: this process also releases posts held for YouTube's daily quota.
     const j = jobs;
@@ -142,6 +173,9 @@ async function build(): Promise<Runtime> {
       10 * 60_000,
     ).unref();
   }
+  const mode: Runtime["mode"] = redisUrl ? "queue" : "all-in-one";
+  // Once per process (runtime() memoises build()).
+  startAllInOneTrends(mode, jobs, handle.db);
   return {
     db: handle.db,
     storage,
@@ -158,7 +192,7 @@ async function build(): Promise<Runtime> {
     fake: fake(),
     providersFor,
     resolve,
-    mode: redisUrl ? "queue" : "all-in-one",
+    mode,
   };
 }
 
