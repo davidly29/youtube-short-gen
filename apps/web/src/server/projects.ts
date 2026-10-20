@@ -82,6 +82,11 @@ export const NewProject = z.object({
   angle: z.string().trim().max(300).optional(),
   targetSeconds: z.union([z.literal(30), z.literal(45), z.literal(60)]),
   tone: z.string().trim().min(2).max(40),
+  /** The daily-brief topic this Short was made from (E3-03b); keeps it out of briefs for 14 days. */
+  topicId: z
+    .string()
+    .regex(/^top_[A-Za-z0-9_]{1,60}$/)
+    .optional(),
 });
 
 export async function createProject(userId: string, input: z.infer<typeof NewProject>) {
@@ -93,6 +98,7 @@ export async function createProject(userId: string, input: z.infer<typeof NewPro
     ownerId: userId,
     title: data.topic.slice(0, 80),
     topic: data.topic,
+    topicId: data.topicId,
     settings: { targetSeconds: data.targetSeconds, tone: data.tone, angle: data.angle, language: "en" },
   });
   return id;

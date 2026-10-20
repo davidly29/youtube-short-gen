@@ -8,7 +8,14 @@ import { Button, Card, ErrorText, Input, Label, Select, Textarea } from "./ui";
 const LENGTHS = [30, 45, 60] as const;
 const TONES = ["curious", "energetic", "calm", "funny", "dramatic", "authoritative"];
 
-export function NewShortForm() {
+/** Prefill from a daily-brief item ("Make this Short" on /today). */
+export interface NewShortDefaults {
+  topic?: string;
+  angle?: string;
+  topicId?: string;
+}
+
+export function NewShortForm({ defaults = {} }: { defaults?: NewShortDefaults }) {
   const router = useRouter();
   const [length, setLength] = useState<(typeof LENGTHS)[number]>(45);
   const [error, setError] = useState<string>();
@@ -24,6 +31,7 @@ export function NewShortForm() {
       angle: String(f.get("angle") ?? "") || undefined,
       targetSeconds: length,
       tone: String(f.get("tone") ?? "curious"),
+      topicId: defaults.topicId,
     });
     if (!res.ok) {
       setLoading(false);
@@ -46,6 +54,7 @@ export function NewShortForm() {
             id="topic"
             name="topic"
             placeholder="Why octopuses have three hearts"
+            defaultValue={defaults.topic}
             required
             minLength={3}
             maxLength={300}
@@ -57,6 +66,7 @@ export function NewShortForm() {
             id="angle"
             name="angle"
             placeholder="e.g. what happens to the hearts when they swim"
+            defaultValue={defaults.angle}
             maxLength={300}
           />
         </div>
