@@ -1,3 +1,4 @@
+import { SHORTLOOP } from "@shortloop/contracts";
 import { balance, type Db } from "@shortloop/db";
 import {
   InsufficientCreditsError,
@@ -21,6 +22,7 @@ import type {
   TTS,
   YouTubeClient,
 } from "@shortloop/providers";
+
 import { briefHandler, isBriefInput } from "./brief";
 import { addNotices, productionFailureListener, withProduction } from "./chain";
 import type { ResolveContext, ResolvedProviders } from "./providers";
@@ -193,7 +195,12 @@ export function createWorker(deps: WorkerDeps): JobService {
       // Daily briefs (E3-03) share the trends queue. Angles use the owner's own LLM key only (BYOK),
       // never a platform default; without one the free template is used.
       const brief = briefHandler(deps.db, {
-        llmFor: async (ownerId) => (await deps.providersFor?.(ownerId))?.llm,
+        llmFor: async (ownerId) => {
+          if (!deps.resolveProviders) return (await deps.providersFor?.(ownerId))?.llm;
+          // Own key only: not ShortLoop AI (metered, platform-paid) and not the operator's shared key.
+          const p = await deps.resolveProviders({ ownerId });
+          return p.route.llm && p.route.llm !== SHORTLOOP ? p.llm : undefined;
+        },
         now: deps.now,
       });
       return (ctx) => (isBriefInput(ctx.job.input) ? brief(ctx) : collect(ctx));

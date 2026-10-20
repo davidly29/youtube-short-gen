@@ -119,6 +119,39 @@ describe("brief job (E3-03)", () => {
     expect(llm.calls).toHaveLength(1);
   });
 
+  it("with the provider resolver (ADR 0007), uses an own key but never ShortLoop AI", async () => {
+    for (const [route, expected] of [
+      ["anthropic", "llm"],
+      ["shortloop", "template"],
+      [undefined, "template"],
+    ] as const) {
+      await h.db.delete(schema.briefs);
+      const llm = fakeLLM();
+      const jobs = createWorker({
+        db: h.db,
+        driver,
+        bus: new MemoryEventBus(),
+        storage: new LocalStorage("/tmp/shortloop-brief-unused"),
+        resolveProviders: async () => ({
+          llm,
+          route: { llm: route, image: "free", tts: "free" },
+          notices: [],
+          premiumAvailable: false,
+          usage: { premiumImages: 0 },
+        }),
+        now: () => NOW,
+      });
+      const fresh = await jobs.enqueue(
+        "trends",
+        { kind: "brief", channelId: "ch_history", date: DATE },
+        { idempotencyKey: `${briefJobKey("ch_history", DATE)}:${route ?? "none"}`, ownerId: SEED.userId },
+      );
+      await driver.drain();
+      expect((await jobs.get(fresh.id))?.status).toBe("succeeded");
+      expect((await briefs())[0]?.generatedWith, `route ${route}`).toBe(expected);
+    }
+  });
+
   it("stores one brief when run twice for the same channel and date", async () => {
     const jobs = worker();
     const a = await scheduleBriefs(jobs, h.db, NOW);
