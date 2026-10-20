@@ -5,16 +5,25 @@ export { createWorker, type WorkerDeps, type WorkerProviders } from "./worker";
 export { scriptHandler, PolicyBlockedError, type ScriptInput } from "./script";
 export { narrationText, voiceHandler, type VoiceInput } from "./voice";
 export { renderHandler, type RenderInput } from "./render";
-export { visualsHandler, type VisualsInput } from "./visuals";
+export { stretchOverGaps, visualsHandler, type VisualsInput } from "./visuals";
 export {
+  addNotices,
   productionFailureListener,
   setProject,
   withProduction,
   type ProduceAfterScript,
   type ProductionChain,
 } from "./chain";
-export { NEEDS_KEY } from "./worker";
-export { loadUserKeys, userKeyResolver } from "./keys";
+export { NEEDS_KEY, PREMIUM_NEEDS_CREDIT } from "./worker";
+export { loadRouting, loadUserKeys, recordKeyHealth, userKeyResolver } from "./keys";
+export {
+  createResolver,
+  fallbackNotice,
+  type PlatformDefaults,
+  type ResolveContext,
+  type ResolvedProviders,
+  type ResolverDeps,
+} from "./providers";
 export {
   channelAccessToken,
   channelAad,

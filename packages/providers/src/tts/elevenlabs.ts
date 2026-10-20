@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { httpError } from "../errors";
 import type { SynthesizeRequest, SynthesizeResult, TTS, TimedWord, Voice } from "./tts";
 
 const VOICES: [string, string][] = [
@@ -68,7 +69,7 @@ export class ElevenLabsTTS implements TTS {
         }),
       },
     );
-    if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw await httpError("elevenlabs", "tts", res);
     const data = (await res.json()) as { audio_base64: string; alignment: Alignment };
     const audioPath = join(req.outDir, `${randomUUID()}.mp3`);
     await writeFile(audioPath, Buffer.from(data.audio_base64, "base64"));

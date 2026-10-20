@@ -68,6 +68,7 @@ export function visualsHandler(
       : [];
 
     const candidates: Record<string, VisualCandidate[]> = {};
+    let lastError: unknown;
     for (const [i, span] of spans.entries()) {
       const list: VisualCandidate[] = library
         .filter((a) => a.kind !== "audio")
@@ -96,19 +97,30 @@ export function visualsHandler(
         }
       }
       if (!list.some((c) => c.origin !== "library") && image) {
-        const a = await generateImageAsset(image, storage, ownerId, {
-          prompt: span.visualQuery,
-          aspect: "9:16",
-          style: input.imageStyle,
-        });
-        await saveAsset(db, a);
-        list.push({ asset: a, origin: "ai", description: a.licence.prompt ?? span.visualQuery });
+        try {
+          const a = await generateImageAsset(image, storage, ownerId, {
+            prompt: span.visualQuery,
+            aspect: "9:16",
+            style: input.imageStyle,
+          });
+          await saveAsset(db, a);
+          list.push({ asset: a, origin: "ai", description: a.licence.prompt ?? span.visualQuery });
+        } catch (e) {
+          // One beat's image failing (even after the free fallback) shouldn't sink the whole Short (ADR 0007).
+          lastError = e;
+        }
       }
       candidates[span.beatId] = list;
       await onProgress(0.1 + (0.8 * (i + 1)) / spans.length);
     }
 
-    const clips = chooseClips(spans, candidates);
+    const covered = spans.filter((s) => candidates[s.beatId]?.length);
+    if (covered.length === 0) {
+      if (lastError) throw lastError;
+      throw new Error("No visuals could be found or made for this Short.");
+    }
+    const clips = stretchOverGaps(chooseClips(covered, candidates), spans);
+    const gaps = spans.length - covered.length;
     const timeline = assembleTimeline({
       timelineId: `tl_${randomUUID()}`,
       script,
@@ -122,6 +134,29 @@ export function visualsHandler(
       captionStyle: input.captionStyle,
     });
     await db.insert(schema.timelines).values({ ...timeline, projectId: script.projectId });
-    return { timelineId: timeline.id, clips: clips.length, durationMs: timeline.durationMs };
+    return {
+      timelineId: timeline.id,
+      clips: clips.length,
+      durationMs: timeline.durationMs,
+      ...(gaps ? { beatsWithoutOwnImage: gaps } : {}),
+    };
   };
+}
+
+/**
+ * When some beats have no visual, extend the neighbouring clips so the video track still covers every beat
+ * with no gaps: each clip runs until the next one starts; the first starts where the first beat does.
+ */
+export function stretchOverGaps<C extends { startMs: number; endMs: number }>(
+  clips: C[],
+  spans: { startMs: number; endMs: number }[],
+): C[] {
+  if (clips.length === 0 || spans.length === 0) return clips;
+  const start = spans[0]?.startMs ?? 0;
+  const end = spans[spans.length - 1]?.endMs ?? 0;
+  return clips.map((c, i) => ({
+    ...c,
+    startMs: i === 0 ? start : c.startMs,
+    endMs: i === clips.length - 1 ? end : (clips[i + 1]?.startMs ?? c.endMs),
+  }));
 }

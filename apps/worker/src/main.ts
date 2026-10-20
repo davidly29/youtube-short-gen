@@ -8,6 +8,7 @@ import {
   RedisEventBus,
 } from "@shortloop/pipeline";
 import {
+  managedProvidersFromEnv,
   platformProvidersFromEnv,
   secretBoxFromEnv,
   storageFromEnv,
@@ -15,7 +16,7 @@ import {
   youtubeFromEnv,
 } from "@shortloop/providers";
 import { startBriefSchedule } from "./brief";
-import { userKeyResolver } from "./keys";
+import { createResolver } from "./providers";
 import { requeueHeldPublishes } from "./publish";
 import { startTrendSchedule, trendsConfigFromEnv } from "./trends";
 import { createWorker } from "./worker";
@@ -36,8 +37,9 @@ const jobs = createWorker({
   bus,
   storage: storageFromEnv(),
   providers: platform,
-  // Each job runs on its owner's own API keys (BYOK); platform defaults fill the gaps.
-  providersFor: userKeyResolver(handle.db, box),
+  // Each job follows its owner's routing (ADR 0007): their own keys, ShortLoop AI on paid plans (metered and
+  // capped), and the free providers as the fallback for images and voices.
+  resolveProviders: createResolver({ db: handle.db, box, platform, managed: managedProvidersFromEnv() }),
   box,
   youtube: youtubeFromEnv(),
   dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
@@ -52,7 +54,7 @@ const sweep = setInterval(
   10 * 60_000,
 );
 console.log(
-  `platform providers: ${platform.sharedKeys ? "operator keys shared with all users" : "free defaults only"}`,
+  `platform providers: ${platform.sharedKeys ? "operator keys shared with all users" : "free defaults only"}; ShortLoop AI ${process.env.MANAGED_AI_ENABLED === "1" ? "on" : "off"}`,
 );
 
 // Monthly credits that weren't used expire at the end of their billing period (no rollover).

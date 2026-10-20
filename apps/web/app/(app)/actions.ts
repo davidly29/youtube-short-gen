@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redeemAccessCode } from "../../src/server/access";
 import { requireUser } from "../../src/server/auth";
 import { disconnect } from "../../src/server/channels";
-import { deleteKey, saveKey } from "../../src/server/keys";
+import { deleteKey, resetKeyHealth, saveKey, saveRouting } from "../../src/server/keys";
 import { publishShort, type PublishForm } from "../../src/server/publishing";
 import {
   alternatives,
@@ -20,7 +20,7 @@ import {
   type ProductionSettings,
   type ScriptDraft,
 } from "../../src/server/projects";
-import type { StockResult } from "@shortloop/providers";
+import { ProviderError, type StockResult } from "@shortloop/providers";
 import { ZodError, type z } from "zod";
 
 type Result<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -31,13 +31,14 @@ async function wrap<T>(fn: (userId: string) => Promise<T>): Promise<Result<T>> {
     return { ok: true, data: await fn(user.id) };
   } catch (e) {
     const message =
-      e instanceof UserError
+      e instanceof UserError || e instanceof ProviderError
         ? e.message
         : e instanceof ZodError
           ? (e.issues[0]?.message ?? "Please check the highlighted fields.")
           : "Something went wrong. Please try again.";
     // Validation errors are the user's to fix; don't log them (they may echo what was typed, e.g. a key).
-    if (!(e instanceof UserError) && !(e instanceof ZodError)) console.error(e);
+    if (!(e instanceof UserError) && !(e instanceof ZodError) && !(e instanceof ProviderError))
+      console.error(e);
     return { ok: false, error: message };
   }
 }
@@ -102,6 +103,18 @@ export async function saveKeyAction(input: {
 export async function deleteKeyAction(provider: string) {
   const r = await wrap((uid) => deleteKey(uid, provider));
   revalidatePath("/", "layout");
+  return r;
+}
+
+export async function saveRoutingAction(input: { llm?: string; image?: string; tts?: string }) {
+  const r = await wrap((uid) => saveRouting(uid, input));
+  revalidatePath("/", "layout");
+  return r;
+}
+
+export async function resetKeyAction(provider: string) {
+  const r = await wrap((uid) => resetKeyHealth(uid, provider));
+  revalidatePath("/settings/keys");
   return r;
 }
 

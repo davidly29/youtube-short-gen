@@ -54,6 +54,12 @@ test.describe("Admin and beta access codes", () => {
     await expect(page.getByTestId("admin")).toBeVisible();
     await expect(page.getByTestId("admin-codes")).toContainText("BETATEST1");
     await expect(page.getByTestId("admin-users")).toContainText("owner-e2e@example.test");
+    await expect(page.getByTestId("admin-ai")).toContainText("ShortLoop AI");
+    await expect(page.getByTestId("admin-ai")).toContainText("on");
+    // Admins get ShortLoop AI (metered): it's the default for every job and shows their allowance.
+    await page.goto("/settings/keys");
+    await expect(page.getByTestId("shortloop-allowance")).toContainText("0% of this month");
+    await expect(page.getByTestId("in-use")).toContainText("ShortLoop AI (in your plan)");
     await page.goto("/billing");
     await expect(page.getByTestId("plan-name")).toHaveText("Admin");
   });

@@ -1,5 +1,6 @@
 import "server-only";
 import { eq, schema, sql } from "@shortloop/db";
+import { managedUsageSummary } from "@shortloop/pipeline";
 import { matchAccessCode, parseAccessCodes, parseAdminEmails } from "../lib/access-codes";
 import { UserError } from "./errors";
 import { runtime } from "./runtime";
@@ -101,4 +102,10 @@ export async function adminOverview() {
     used: users.filter((u) => u.accessCode === c.code).length,
   }));
   return { users, codes, admins: [...parseAdminEmails(process.env.ADMIN_EMAILS)].length };
+}
+
+/** Admin page: ShortLoop AI spend today and this month, and the top spenders (ADR 0007). */
+export async function shortloopUsage() {
+  const { db } = await runtime();
+  return managedUsageSummary(db);
 }
