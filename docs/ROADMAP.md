@@ -81,12 +81,12 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 | #28   | E3-01  | Trend source collectors                                   | #4         | in review (#84) |
 | #29   | E3-02  | Topic clustering and velocity                             | #28        | in review (#88) |
 | #30   | E3-03  | Daily brief                                               | #29, #11   | in review (#88) |
-| #31   | E3-04  | Fact grounding for news formats                           | #30        | open            |
+| #31   | E3-04  | Fact grounding for news formats                           | #30        | in review (#89) |
 | #75   | E3-01c | RSS collector with niche feed config (split from #28)     | #28        | in review (#84) |
 | #76   | E3-01d | Google Trends signals (split from #28, owner decision)    | #28        | open            |
 | #78   | E3-03b | Today page and niche picker (split from #30)              | #30        | open            |
 | #79   | E3-03c | Daily brief email digest (split from #30, owner decision) | #30, #78   | open            |
-| #83   | E3-01e | Run trend collection in the all-in-one web runtime        | #28        | open            |
+| #83   | E3-01e | Run trend collection in the all-in-one web runtime        | #28        | in review (#89) |
 
 ## S8–S9
 
