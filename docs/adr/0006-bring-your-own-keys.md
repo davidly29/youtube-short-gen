@@ -1,6 +1,6 @@
 # ADR 0006: Users bring their own AI keys (BYOK); the platform pays only for free defaults
 
-Status: accepted (owner, 2026-10-18) · Date: 2026-10-18
+Status: accepted (owner, 2026-10-18), amended by [ADR 0007](0007-provider-routing-and-shortloop-ai.md) · Date: 2026-10-18
 
 ## Context
 

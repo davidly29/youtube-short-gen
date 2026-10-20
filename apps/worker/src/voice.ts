@@ -40,7 +40,12 @@ export function voiceHandler(db: Db, tts: TTS, storage: Storage): JobHandler {
         ownerId,
         kind: "audio",
         source: "ai_generated",
-        licence: { type: "ai_generated", provider: tts.provider, model: input.voiceId },
+        // Who actually spoke: a fallback (ADR 0007) may have used the free voice instead of the chosen one.
+        licence: {
+          type: "ai_generated",
+          provider: r.provider ?? tts.provider,
+          model: r.voiceId ?? input.voiceId,
+        },
         storageKey,
         durationMs,
       });

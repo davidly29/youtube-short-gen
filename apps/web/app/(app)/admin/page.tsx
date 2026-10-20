@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge, Card } from "../../../src/components/ui";
-import { adminOverview, isAdmin } from "../../../src/server/access";
+import { adminOverview, isAdmin, shortloopUsage } from "../../../src/server/access";
 import { requireUser } from "../../../src/server/auth";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,8 @@ const date = (iso: string) =>
 export default async function AdminPage() {
   const user = await requireUser();
   if (!(await isAdmin(user.id))) notFound();
-  const o = await adminOverview();
+  const [o, ai] = await Promise.all([adminOverview(), shortloopUsage()]);
+  const usd = (n: number) => `$${n.toFixed(2)}`;
   return (
     <div className="space-y-6" data-testid="admin">
       <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
@@ -30,6 +31,37 @@ export default async function AdminPage() {
               </li>
             ))}
           </ul>
+        )}
+      </Card>
+      <Card data-testid="admin-ai">
+        <h2 className="flex items-center gap-2 font-semibold">
+          ShortLoop AI {ai.enabled ? <Badge tone="good">on</Badge> : <Badge>off</Badge>}
+        </h2>
+        <p className="mt-2 text-sm">
+          Today {usd(ai.todayUsd)} of {usd(ai.dailyBudgetUsd)} daily budget · this month {usd(ai.monthUsd)}
+        </p>
+        <p className="mt-1 text-xs text-ink-soft">
+          Estimated from list prices. Switch off with MANAGED_AI_ENABLED; budget MANAGED_AI_DAILY_BUDGET_USD.
+        </p>
+        {ai.users.length > 0 && (
+          <table className="mt-3 w-full text-left text-sm">
+            <thead className="text-xs text-ink-soft">
+              <tr>
+                <th className="pb-2 font-medium">Top users this month</th>
+                <th className="pb-2 font-medium">Calls</th>
+                <th className="pb-2 font-medium">Spend</th>
+              </tr>
+            </thead>
+            <tbody data-testid="admin-ai-users">
+              {ai.users.map((u) => (
+                <tr key={u.ownerId} className="border-t border-line">
+                  <td className="py-2 pr-2">{u.email ?? u.ownerId}</td>
+                  <td className="py-2 pr-2">{u.calls}</td>
+                  <td className="py-2">{usd(u.monthUsd)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </Card>
       <Card>

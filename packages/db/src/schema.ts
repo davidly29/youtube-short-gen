@@ -13,7 +13,16 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { AudioClip, Beat, CaptionWord, Clip, Licence, PublishRequest } from "@shortloop/contracts";
+import type {
+  AudioClip,
+  Beat,
+  CaptionWord,
+  Clip,
+  KeyError,
+  KeyUnavailable,
+  Licence,
+  PublishRequest,
+} from "@shortloop/contracts";
 
 const createdAt = () =>
   timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow();
@@ -163,6 +172,8 @@ export const projects = pgTable(
     renderAssetId: text("render_asset_id"),
     lastJobId: text("last_job_id"),
     error: text("error"),
+    /** Things the user should know about how this Short was made (e.g. a fallback to free images). ADR 0007. */
+    notices: jsonb("notices").$type<string[]>().notNull().default([]),
     approvedAt: timestamp("approved_at", { withTimezone: true, mode: "string" }),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
@@ -355,10 +366,50 @@ export const userApiKeys = pgTable(
     model: text("model"),
     imageModel: text("image_model"),
     verifiedAt: timestamp("verified_at", { withTimezone: true, mode: "string" }),
+    /** Key health (ADR 0007): last successful call, last error, and jobs this key can't do. */
+    lastOkAt: timestamp("last_ok_at", { withTimezone: true, mode: "string" }),
+    lastError: jsonb("last_error").$type<KeyError>(),
+    unavailable: jsonb("unavailable").$type<KeyUnavailable[]>().notNull().default([]),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("user_api_keys_owner_provider").on(t.ownerId, t.provider)],
+);
+
+/** Which provider does each job for a user (ADR 0007). Values are validated by `ProviderRouting`. */
+export const providerRouting = pgTable("provider_routing", {
+  ownerId: text("owner_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  llm: text("llm"),
+  image: text("image"),
+  tts: text("tts"),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+});
+
+/** Append-only ledger of calls made on ShortLoop's own keys, with estimated cost (ADR 0007). */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    projectId: text("project_id"),
+    jobId: text("job_id"),
+    capability: text("capability").notNull(),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    units: integer("units").notNull(),
+    costUsd: doublePrecision("cost_usd").notNull(),
+    swap: boolean("swap").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("ai_usage_owner_created").on(t.ownerId, t.createdAt),
+    index("ai_usage_project").on(t.projectId),
+    index("ai_usage_created").on(t.createdAt),
+  ],
 );
 
 /** A user's paid plan, mirrored from Stripe webhooks. One row per user. */

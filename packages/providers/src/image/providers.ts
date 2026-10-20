@@ -5,6 +5,7 @@ import { Asset, DEFAULT_MODELS } from "@shortloop/contracts";
 import type { Storage } from "../storage";
 import { join } from "node:path";
 import { runFfmpeg } from "../media/ffmpeg";
+import { httpError } from "../errors";
 import { geminiGenerate } from "../llm/gemini";
 import {
   checkImagePrompt,
@@ -56,7 +57,7 @@ export class PollinationsImage extends BaseImageGen {
       seed: String(req.seed ?? Math.floor(Math.random() * 2 ** 31)),
     }).toString();
     const res = await this.fetchImpl(url);
-    if (!res.ok) throw new Error(`Pollinations ${res.status}`);
+    if (!res.ok) throw await httpError("pollinations", "image", res);
     return Buffer.from(await res.arrayBuffer());
   }
 }
@@ -77,7 +78,7 @@ export class FalImage extends BaseImageGen {
       headers: { authorization: `Key ${this.key}`, "content-type": "application/json" },
       body: JSON.stringify({ prompt, image_size: generationSize(req.aspect), num_images: 1, seed: req.seed }),
     });
-    if (!res.ok) throw new Error(`fal ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) throw await httpError("fal", "image", res);
     const data = (await res.json()) as { images: { url: string }[] };
     const img = data.images[0];
     if (!img) throw new Error("fal returned no image");
@@ -100,10 +101,16 @@ export class GeminiImage extends BaseImageGen {
     super();
   }
   protected async render(prompt: string, req: ImageRequest): Promise<{ data: Buffer; ext: string }> {
-    const data = await geminiGenerate(this.fetchImpl, this.key, this.model, {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: req.aspect } },
-    });
+    const data = await geminiGenerate(
+      this.fetchImpl,
+      this.key,
+      this.model,
+      {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: req.aspect } },
+      },
+      "image",
+    );
     const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
     if (!part?.inlineData) throw new Error("Gemini returned no image");
     return {
