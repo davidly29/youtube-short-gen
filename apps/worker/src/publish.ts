@@ -21,9 +21,13 @@ import {
   type JobService,
 } from "@shortloop/pipeline";
 import {
+  musicCheck,
+  needsFingerprint,
   QuotaExceeded,
   ReconnectRequired,
   videoUrl,
+  type Fingerprinter,
+  type FingerprintResult,
   type SecretBox,
   type Storage,
   type YouTubeClient,
@@ -36,7 +40,10 @@ export interface PublishInput {
   request: PublishRequest;
 }
 
-export class PublishRefused extends Error {}
+/** A check refused the publish. Retrying can't change the answer, so the job fails on its first attempt. */
+export class PublishRefused extends Error {
+  readonly permanent = true;
+}
 
 export interface PublishDeps {
   db: Db;
@@ -45,8 +52,15 @@ export interface PublishDeps {
   youtube: YouTubeClient;
   /** Uploads per Pacific day across the deployment's Google project (default 100). */
   dailyLimit?: number;
+  /** Audio recognition for user-supplied audio (E13-03). Without it the check is recorded as `skipped`. */
+  fingerprint?: Fingerprinter;
+  /** Refuse to publish user-supplied audio when no recognition service is configured (FINGERPRINT_REQUIRED=1). */
+  requireMusicCheck?: boolean;
   now?: () => Date;
 }
+
+export const MUSIC_CHECK_UNAVAILABLE =
+  "Uploaded audio has to be checked for commercial music before publishing, and that check isn't set up on this server.";
 
 const nowIso = (d: Date) => d.toISOString();
 
@@ -88,8 +102,9 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         .where(eq(schema.publishRecords.id, rec.id));
 
     // What the checks found, recorded with the outcome so a publish can be explained later (E13-02).
-    const checks: PublishChecks = { rights: "pending", variation: "pending" };
+    const checks: PublishChecks = { rights: "pending", variation: "pending", music: "pending" };
     let assetsUsed: RightsEntry[] = [];
+    let musicMatches: unknown[] = [];
     try {
       // 1. Checks: approved, every asset licensed, not a near-duplicate (unless the user overrode it, logged).
       const project = await db.query.projects.findFirst({ where: eq(schema.projects.id, input.projectId) });
@@ -115,6 +130,31 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         throw e;
       }
       checks.rights = "passed";
+      // Commercial music in user-supplied audio blocks the publish (E13-03). Video clips render muted.
+      const audioIds = new Set(timeline.audio.map((c) => c.assetId));
+      const toCheck = assets.filter((a) => audioIds.has(a.id) && needsFingerprint(a));
+      if (toCheck.length === 0) checks.music = "passed";
+      else if (!deps.fingerprint) {
+        checks.music = "skipped";
+        if (deps.requireMusicCheck) throw new PublishRefused(MUSIC_CHECK_UNAVAILABLE);
+      } else {
+        const fp = deps.fingerprint;
+        const results: { asset: Asset; result: FingerprintResult }[] = [];
+        const tmp = await mkdtemp(join(tmpdir(), "music-"));
+        try {
+          for (const [i, a] of toCheck.entries()) {
+            const file = join(tmp, `audio-${i}`);
+            await deps.storage.getFile(a.storageKey, file);
+            results.push({ asset: a, result: await fp.fingerprint(a, file) });
+          }
+        } finally {
+          await rm(tmp, { recursive: true, force: true });
+        }
+        const music = musicCheck(results);
+        musicMatches = music.matches;
+        checks.music = music.ok ? "passed" : "failed";
+        if (!music.ok) throw new PublishRefused(music.problems.join(" "));
+      }
       const script = project.scriptId
         ? await db.query.scripts.findFirst({ where: eq(schema.scripts.id, project.scriptId) })
         : undefined;
@@ -185,6 +225,7 @@ export function publishHandler(deps: PublishDeps): JobHandler {
           containsSyntheticMedia: metadata.containsSyntheticMedia,
           checks,
           assets: manifest.entries,
+          musicMatches,
         },
       });
       await onProgress(1);
@@ -203,7 +244,14 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         type: "publish.failed",
         subjectId: rec.id,
         jobId: job.id,
-        data: { platform: "youtube", channelId: rec.channelId, error: message, checks, assets: assetsUsed },
+        data: {
+          platform: "youtube",
+          channelId: rec.channelId,
+          error: message,
+          checks,
+          assets: assetsUsed,
+          musicMatches,
+        },
       });
       throw e instanceof ReconnectRequired || e instanceof PublishRefused ? new PublishRefused(message) : e;
     }
