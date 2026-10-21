@@ -52,5 +52,11 @@ export async function disconnect(userId: string, channelId: string) {
     where: and(eq(schema.channels.id, channelId), eq(schema.channels.ownerId, userId)),
   });
   if (!ch) throw new UserError("Channel not found");
-  await disconnectChannel(rt.db, rt.box, rt.youtube, userId, channelId);
+  await disconnectChannel(
+    rt.db,
+    rt.box,
+    ch.platform === "youtube" ? rt.youtube : undefined,
+    userId,
+    channelId,
+  );
 }
