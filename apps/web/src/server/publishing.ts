@@ -55,7 +55,8 @@ async function requestPublish(
   const ch = await rt.db.query.channels.findFirst({
     where: and(eq(schema.channels.id, form.channelId), eq(schema.channels.ownerId, userId)),
   });
-  if (!ch || ch.status === "disconnected") throw new UserError("Pick one of your connected channels.");
+  if (!ch || ch.status === "disconnected" || ch.platform !== "youtube")
+    throw new UserError("Pick one of your connected YouTube channels.");
   if (ch.status === "needs_reconnect")
     throw new UserError("YouTube access for this channel expired. Reconnect it in Channels first.");
   await assertChannelPublishable(userId, ch.id);

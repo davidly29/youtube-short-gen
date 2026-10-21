@@ -90,10 +90,10 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 
 ## S8–S9
 
-| Issue | Ticket | Title                           | Blocked by | Status |
-| ----- | ------ | ------------------------------- | ---------- | ------ |
-| #32   | E8-03  | TikTok Direct Post (Q2)         | #23        | open   |
-| #33   | E8-04  | Instagram Reels publishing (Q2) | #23        | open   |
+| Issue | Ticket | Title                           | Blocked by | Status          |
+| ----- | ------ | ------------------------------- | ---------- | --------------- |
+| #32   | E8-03  | TikTok Direct Post (Q2)         | #23        | in review (#93) |
+| #33   | E8-04  | Instagram Reels publishing (Q2) | #23        | in review (#93) |
 
 ## S10–S11
 

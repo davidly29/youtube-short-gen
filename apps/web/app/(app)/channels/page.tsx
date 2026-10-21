@@ -4,6 +4,7 @@ import { Card, ErrorText } from "../../../src/components/ui";
 import { requireUser } from "../../../src/server/auth";
 import { getTodayBrief, NICHE_OPTIONS } from "../../../src/server/brief";
 import { channelAllowance, listChannels, youtubeConfigured } from "../../../src/server/channels";
+import { tiktokConfigured } from "../publish/tiktok/service";
 import { NicheSelect } from "../today/niche-select";
 
 export default async function ChannelsPage({
@@ -12,11 +13,12 @@ export default async function ChannelsPage({
   searchParams: Promise<{ connected?: string; error?: string }>;
 }) {
   const user = await requireUser();
-  const [channels, configured, q, niches, allowance] = await Promise.all([
+  const [channels, configured, q, niches, tiktok, allowance] = await Promise.all([
     listChannels(user.id),
     youtubeConfigured(),
     searchParams,
     getTodayBrief(user.id),
+    tiktokConfigured(),
     channelAllowance(user.id),
   ]);
   const plural = allowance.limit === 1 ? "" : "s";
@@ -70,8 +72,30 @@ export default async function ChannelsPage({
           )}
         </div>
       </Card>
+      {tiktok && (
+        <Card className="flex flex-wrap items-center justify-between gap-4" data-testid="tiktok-card">
+          <div>
+            <h2 className="font-semibold">TikTok</h2>
+            <p className="mt-1 text-sm text-ink-soft">
+              Post approved Shorts to your TikTok account. We ask only for your basic profile and permission
+              to post videos you choose.
+            </p>
+          </div>
+          <a
+            href="/publish/tiktok/connect"
+            className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-4 py-2.5 text-sm font-semibold hover:bg-paper"
+            data-testid="connect-tiktok-channels"
+          >
+            Connect TikTok
+          </a>
+        </Card>
+      )}
       {allowance.overLimit && allowance.limit !== null && (
-        <ChooseActiveChannels channels={channels} limit={allowance.limit} planName={allowance.planName} />
+        <ChooseActiveChannels
+          channels={channels.filter((c) => c.platform === "youtube")}
+          limit={allowance.limit}
+          planName={allowance.planName}
+        />
       )}
       <ChannelList key={channels.map((c) => `${c.id}:${c.publishable}`).join(",")} initial={channels} />
       {niches.length > 0 && (
