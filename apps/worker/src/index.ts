@@ -52,3 +52,4 @@ export {
   type BriefHandlerOptions,
   type BriefJobInput,
 } from "./brief";
+export { buildStyleProfile, getChannelStyle, StyleError, styleForScript, updateChannelStyle } from "./style";
