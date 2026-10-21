@@ -1,4 +1,6 @@
 import { NewShortForm } from "../../../src/components/new-short-form";
+import { requireUser } from "../../../src/server/auth";
+import { voiceOptions } from "../../../src/server/style";
 
 const one = (v: string | string[] | undefined, max: number) =>
   (Array.isArray(v) ? v[0] : v)?.trim().slice(0, max) || undefined;
@@ -9,10 +11,12 @@ export default async function NewShortPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const q = await searchParams;
+  const user = await requireUser();
+  const [q, voices] = await Promise.all([searchParams, voiceOptions(user.id)]);
   const topicId = one(q.topicId, 80);
   return (
     <NewShortForm
+      voices={voices}
       defaults={{
         topic: one(q.topic, 300),
         angle: one(q.angle, 300),

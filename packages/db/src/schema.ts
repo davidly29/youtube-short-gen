@@ -158,6 +158,8 @@ export interface ProjectSettings {
   captionStyle?: string;
   imageStyle?: string;
   angle?: string;
+  /** Write the script in this channel's voice (E4-03), when its profile is switched on. */
+  styleChannelId?: string;
 }
 
 export const projects = pgTable(
