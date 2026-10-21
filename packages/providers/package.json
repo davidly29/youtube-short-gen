@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Adapters for LLM, TTS, image, video, stock and ASR providers, each with a fake",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tiktok-rules": "./src/tiktok/tiktok.ts"
   },
   "scripts": {
     "lint": "eslint src",
