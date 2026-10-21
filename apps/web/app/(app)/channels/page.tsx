@@ -1,9 +1,9 @@
 import { CheckCircle2, ShieldCheck, MonitorPlay } from "lucide-react";
-import { ChannelList } from "../../../src/components/channels";
+import { ChannelList, ChooseActiveChannels } from "../../../src/components/channels";
 import { Card, ErrorText } from "../../../src/components/ui";
 import { requireUser } from "../../../src/server/auth";
 import { getTodayBrief, NICHE_OPTIONS } from "../../../src/server/brief";
-import { listChannels, youtubeConfigured } from "../../../src/server/channels";
+import { channelAllowance, listChannels, youtubeConfigured } from "../../../src/server/channels";
 import { NicheSelect } from "../today/niche-select";
 
 export default async function ChannelsPage({
@@ -12,12 +12,14 @@ export default async function ChannelsPage({
   searchParams: Promise<{ connected?: string; error?: string }>;
 }) {
   const user = await requireUser();
-  const [channels, configured, q, niches] = await Promise.all([
+  const [channels, configured, q, niches, allowance] = await Promise.all([
     listChannels(user.id),
     youtubeConfigured(),
     searchParams,
     getTodayBrief(user.id),
+    channelAllowance(user.id),
   ]);
+  const plural = allowance.limit === 1 ? "" : "s";
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
@@ -45,7 +47,15 @@ export default async function ChannelsPage({
               videos.
             </p>
           </div>
-          {configured ? (
+          {configured && allowance.atLimit ? (
+            <p className="max-w-xs text-sm text-ink-soft" data-testid="channel-limit">
+              Your {allowance.planName} plan includes {allowance.limit} channel{plural}.{" "}
+              <a href="/billing" className="font-semibold text-brand" data-testid="upgrade-link">
+                Upgrade
+              </a>{" "}
+              or disconnect one to connect another.
+            </p>
+          ) : configured ? (
             <a
               href="/api/channels/youtube/start"
               className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-deep"
@@ -60,7 +70,10 @@ export default async function ChannelsPage({
           )}
         </div>
       </Card>
-      <ChannelList initial={channels} />
+      {allowance.overLimit && allowance.limit !== null && (
+        <ChooseActiveChannels channels={channels} limit={allowance.limit} planName={allowance.planName} />
+      )}
+      <ChannelList key={channels.map((c) => `${c.id}:${c.publishable}`).join(",")} initial={channels} />
       {niches.length > 0 && (
         <Card data-testid="channel-niches">
           <h2 className="font-semibold">Daily brief niche</h2>

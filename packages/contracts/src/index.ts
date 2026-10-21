@@ -48,7 +48,15 @@ export {
   PREMIUM_PER_SHORT_USD,
   type ManagedLimits,
 } from "./managed";
-export { PLANS, PlanId, SubscriptionStatus, type BillingEvent, type Plan } from "./billing";
+export {
+  FREE_MAX_CHANNELS,
+  PLANS,
+  PlanId,
+  SubscriptionStatus,
+  maxChannelsFor,
+  type BillingEvent,
+  type Plan,
+} from "./billing";
 export {
   DEFAULT_NICHES,
   Niche,

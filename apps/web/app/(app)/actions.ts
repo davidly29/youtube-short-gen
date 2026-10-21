@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redeemAccessCode } from "../../src/server/access";
 import { requireUser } from "../../src/server/auth";
-import { disconnect } from "../../src/server/channels";
+import { chooseActiveChannels, disconnect } from "../../src/server/channels";
 import { deleteKey, resetKeyHealth, saveKey, saveRouting } from "../../src/server/keys";
 import { publishShort, type PublishForm } from "../../src/server/publishing";
 import {
@@ -120,6 +120,12 @@ export async function resetKeyAction(provider: string) {
 
 export async function disconnectAction(channelId: string) {
   const r = await wrap((uid) => disconnect(uid, channelId));
+  revalidatePath("/channels");
+  return r;
+}
+
+export async function chooseActiveChannelsAction(channelIds: string[]) {
+  const r = await wrap((uid) => chooseActiveChannels(uid, channelIds));
   revalidatePath("/channels");
   return r;
 }

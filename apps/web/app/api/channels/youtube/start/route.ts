@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.redirect(new URL("/sign-in", req.url));
   try {
-    const { url, state } = await startYouTubeConnect();
+    const { url, state } = await startYouTubeConnect(session.user.id);
     (await cookies()).set(STATE_COOKIE, state, {
       httpOnly: true,
       sameSite: "lax",
