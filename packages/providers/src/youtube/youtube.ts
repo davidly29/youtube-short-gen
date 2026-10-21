@@ -11,6 +11,15 @@ export interface YouTubeOAuthConfig {
   redirectUri: string;
 }
 
+/** One of the creator's own uploads: text metadata only, never the media (E4-03). */
+export interface OwnVideo {
+  id: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  privacyStatus: "public" | "unlisted" | "private";
+}
+
 export interface YouTubeChannel {
   id: string;
   title: string;
@@ -59,6 +68,11 @@ export interface YouTubeClient {
   revoke(token: string): Promise<void>;
   myChannel(accessToken: string): Promise<YouTubeChannel>;
   upload(input: UploadInput): Promise<{ videoId: string }>;
+  /**
+   * The authorised channel's most recent uploads (newest first, up to `max`, at most 50): titles and
+   * descriptions only. Costs 3 quota units with `youtube.readonly`.
+   */
+  myVideos(accessToken: string, max?: number): Promise<OwnVideo[]>;
 }
 
 export const videoUrl = (videoId: string) => `https://www.youtube.com/shorts/${videoId}`;

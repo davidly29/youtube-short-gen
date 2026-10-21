@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import {
+  type OwnVideo,
   QuotaExceeded,
   ReconnectRequired,
   type UploadInput,
@@ -17,6 +18,9 @@ export class FakeYouTube implements YouTubeClient {
   readonly revoked: string[] = [];
   /** Uploads allowed before QuotaExceeded (simulates the daily quota). */
   quotaLeft = Number.POSITIVE_INFINITY;
+
+  /** The connected channel's own uploads, newest first (12 history explainers by default). */
+  videos: OwnVideo[] = FAKE_OWN_VIDEOS;
 
   /** `channel`: always return this channel; otherwise each consent yields its own "Fake Channel". */
   constructor(
@@ -45,6 +49,9 @@ export class FakeYouTube implements YouTubeClient {
   async myChannel(accessToken: string) {
     return this.channel ?? { id: `UC_fake_${accessToken.replace(/^access-/, "")}`, title: "Fake Channel" };
   }
+  async myVideos(_accessToken: string, max = 50) {
+    return this.videos.slice(0, Math.min(50, max));
+  }
   async upload(input: UploadInput) {
     if (this.quotaLeft <= 0) throw new QuotaExceeded("YouTube quota: uploadLimitExceeded");
     this.quotaLeft -= 1;
@@ -54,3 +61,27 @@ export class FakeYouTube implements YouTubeClient {
     return { videoId };
   }
 }
+
+const FAKE_TITLES = [
+  "Why the Roman legion almost never retreated",
+  "Why the Vikings sailed without a compass",
+  "3 ancient empires that vanished overnight",
+  "The medieval castle trick nobody talks about",
+  "Why the pyramids were built by paid workers",
+  "3 Roman inventions we still use every day",
+  "How the ancient Greeks measured the Earth",
+  "The empire that ran on salt",
+  "Why the Spartans feared the sea",
+  "3 lost cities archaeologists finally found",
+  "How a legion built a road in a week",
+  "Why the Byzantine empire lasted a thousand years",
+];
+
+/** Twelve public uploads from an imaginary history channel, for tests and fake mode. */
+export const FAKE_OWN_VIDEOS: OwnVideo[] = FAKE_TITLES.map((title, i) => ({
+  id: `fakeown${i + 1}`,
+  title,
+  description: `${title}. Ancient history, told fast. The empire, the legion and the people behind them. Sources in the pinned comment.`,
+  publishedAt: new Date(Date.UTC(2026, 8, 30 - i)).toISOString(),
+  privacyStatus: "public",
+}));
