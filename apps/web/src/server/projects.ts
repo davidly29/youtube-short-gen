@@ -17,7 +17,7 @@ import {
   type RightsManifest,
 } from "@shortloop/pipeline";
 import { generateImageAsset, importStock, type StockResult } from "@shortloop/providers";
-import { addNotices } from "@shortloop/worker";
+import { addNotices, styleForScript } from "@shortloop/worker";
 import { z } from "zod";
 import { accessOf } from "./access";
 import { listChannels } from "./channels";
@@ -87,6 +87,8 @@ export const NewProject = z.object({
     .string()
     .regex(/^top_[A-Za-z0-9_]{1,60}$/)
     .optional(),
+  /** Write in this connected channel's voice (E4-03). */
+  styleChannelId: z.string().max(80).optional(),
 });
 
 export async function createProject(userId: string, input: z.infer<typeof NewProject>) {
@@ -99,7 +101,13 @@ export async function createProject(userId: string, input: z.infer<typeof NewPro
     title: data.topic.slice(0, 80),
     topic: data.topic,
     topicId: data.topicId,
-    settings: { targetSeconds: data.targetSeconds, tone: data.tone, angle: data.angle, language: "en" },
+    settings: {
+      targetSeconds: data.targetSeconds,
+      tone: data.tone,
+      angle: data.angle,
+      language: "en",
+      styleChannelId: data.styleChannelId,
+    },
   });
   return id;
 }
@@ -117,6 +125,8 @@ export async function requestAiScript(
       "AI scripts use your own AI key. Add an Anthropic, OpenAI or Gemini key in Settings → API keys, or write the script yourself.",
     );
   const p = await ownProject(userId, projectId);
+  // Only an enabled profile on a channel this user still has; otherwise the script is written without one.
+  const styleProfile = await styleForScript(rt.db, userId, p.settings.styleChannelId);
   const job = await rt.jobs.enqueue(
     "script",
     {
@@ -126,6 +136,7 @@ export async function requestAiScript(
       targetSeconds: p.settings.targetSeconds ?? 45,
       tone: p.settings.tone ?? "curious",
       language: p.settings.language ?? "en",
+      styleProfile,
       produce,
     },
     { idempotencyKey: `script:${projectId}:${Date.now()}`, ownerId: userId },

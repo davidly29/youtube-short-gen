@@ -23,6 +23,7 @@ import type {
   KeyUnavailable,
   Licence,
   PublishRequest,
+  StyleProfile,
 } from "@shortloop/contracts";
 
 const createdAt = () =>
@@ -162,6 +163,8 @@ export interface ProjectSettings {
   captionStyle?: string;
   imageStyle?: string;
   angle?: string;
+  /** Write the script in this channel's voice (E4-03), when its profile is switched on. */
+  styleChannelId?: string;
 }
 
 export const projects = pgTable(
@@ -662,3 +665,21 @@ export const briefs = pgTable(
   },
   (t) => [uniqueIndex("briefs_channel_date").on(t.channelId, t.date)],
 );
+
+/**
+ * A channel's voice, learned from the creator's own published videos and editable in Settings (E4-03).
+ * One per channel; rebuilding replaces it.
+ */
+export const styleProfiles = pgTable("style_profiles", {
+  channelId: text("channel_id")
+    .primaryKey()
+    .references(() => channels.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => users.id),
+  profile: jsonb("profile").$type<StyleProfile>().notNull(),
+  sourceVideoCount: integer("source_video_count").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  builtAt: timestamp("built_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  editedAt: timestamp("edited_at", { withTimezone: true, mode: "string" }),
+});

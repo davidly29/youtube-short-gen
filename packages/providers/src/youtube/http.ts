@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import {
+  type OwnVideo,
   QuotaExceeded,
   ReconnectRequired,
   YOUTUBE_SCOPES,
@@ -117,6 +118,52 @@ export class HttpYouTube implements YouTubeClient {
         "This Google account has no YouTube channel yet. Create one on YouTube, then connect again.",
       );
     return { id: ch.id, title: ch.snippet.title, avatarUrl: ch.snippet.thumbnails?.default?.url };
+  }
+
+  async myVideos(accessToken: string, max = 50): Promise<OwnVideo[]> {
+    const limit = Math.max(1, Math.min(50, Math.floor(max)));
+    const get = async <T>(path: string, what: string): Promise<T> => {
+      const res = await this.fetchImpl(`${API}/${path}`, {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) await fail(res, what);
+      return (await res.json()) as T;
+    };
+    const ch = await get<{ items?: { contentDetails?: { relatedPlaylists?: { uploads?: string } } }[] }>(
+      "channels?part=contentDetails&mine=true",
+      "channel lookup",
+    );
+    const uploads = ch.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploads) return [];
+    const list = await get<{ items?: { contentDetails?: { videoId?: string } }[] }>(
+      `playlistItems?${new URLSearchParams({ part: "contentDetails", playlistId: uploads, maxResults: String(limit) })}`,
+      "uploads list",
+    );
+    const ids = (list.items ?? []).flatMap((i) =>
+      i.contentDetails?.videoId ? [i.contentDetails.videoId] : [],
+    );
+    if (ids.length === 0) return [];
+    const videos = await get<{
+      items?: {
+        id: string;
+        snippet?: { title?: string; description?: string; publishedAt?: string };
+        status?: { privacyStatus?: OwnVideo["privacyStatus"] };
+      }[];
+    }>(`videos?${new URLSearchParams({ part: "snippet,status", id: ids.join(",") })}`, "video lookup");
+    const byId = new Map((videos.items ?? []).map((v) => [v.id, v]));
+    return ids.flatMap((id) => {
+      const v = byId.get(id);
+      if (!v?.snippet?.title) return [];
+      return [
+        {
+          id,
+          title: v.snippet.title,
+          description: v.snippet.description ?? "",
+          publishedAt: v.snippet.publishedAt ?? "",
+          privacyStatus: v.status?.privacyStatus ?? "private",
+        },
+      ];
+    });
   }
 
   /** Resumable upload: start (or resume) a session, then send the remaining bytes. */

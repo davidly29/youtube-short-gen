@@ -18,3 +18,4 @@ export * from "./trends/cluster";
 export * from "./brief";
 export * from "./grounding";
 export * from "./managed";
+export * from "./style";

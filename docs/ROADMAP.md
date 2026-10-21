@@ -90,10 +90,10 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 
 ## S8–S9
 
-| Issue | Ticket | Title                           | Blocked by | Status |
-| ----- | ------ | ------------------------------- | ---------- | ------ |
-| #32   | E8-03  | TikTok Direct Post (Q2)         | #23        | open   |
-| #33   | E8-04  | Instagram Reels publishing (Q2) | #23        | open   |
+| Issue | Ticket | Title                           | Blocked by | Status          |
+| ----- | ------ | ------------------------------- | ---------- | --------------- |
+| #32   | E8-03  | TikTok Direct Post (Q2)         | #23        | in review (#93) |
+| #33   | E8-04  | Instagram Reels publishing (Q2) | #23        | in review (#93) |
 
 ## S10–S11
 
@@ -101,6 +101,8 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 | ----- | ------ | --------------------------------- | ---------- | --------------- |
 | #34   | E4-03  | Channel voice profile (Q2)        | #11, #22   | open            |
 | #35   | E13-03 | Music and audio rights check (Q2) | #8         | in review (#97) |
+| #34   | E4-03  | Channel voice profile (Q2)        | #11, #22   | in review (#95) |
+| #35   | E13-03 | Music and audio rights check (Q2) | #8         | open            |
 
 ## S12–S14
 

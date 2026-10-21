@@ -3,6 +3,7 @@ import { AlertTriangle, Link2Off, MonitorPlay, PauseCircle } from "lucide-react"
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { chooseActiveChannelsAction, disconnectAction } from "../../app/(app)/actions";
+import { disconnectTikTokAction } from "../../app/(app)/publish/tiktok/actions";
 import type { ChannelView } from "../server/channels";
 import { Badge, Button, Card, ErrorText } from "./ui";
 
@@ -103,11 +104,19 @@ export function ChannelList({ initial }: { initial: ChannelView[] }) {
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{c.title}</p>
+              <p className="truncate font-semibold">
+                {c.title}
+                <span className="ml-2 text-xs font-normal text-ink-soft">
+                  {c.platform === "tiktok" ? "TikTok" : c.platform === "instagram" ? "Instagram" : "YouTube"}
+                </span>
+              </p>
               {c.status === "needs_reconnect" ? (
                 <p className="mt-0.5 flex items-center gap-1 text-sm text-warn" data-testid="needs-reconnect">
                   <AlertTriangle className="size-4" aria-hidden /> Access expired.{" "}
-                  <a className="font-semibold underline" href="/api/channels/youtube/start">
+                  <a
+                    className="font-semibold underline"
+                    href={c.platform === "tiktok" ? "/publish/tiktok/connect" : "/api/channels/youtube/start"}
+                  >
                     Reconnect
                   </a>
                 </p>
@@ -124,7 +133,7 @@ export function ChannelList({ initial }: { initial: ChannelView[] }) {
               loading={busy === c.id}
               onClick={async () => {
                 setBusy(c.id);
-                const r = await disconnectAction(c.id);
+                const r = await (c.platform === "tiktok" ? disconnectTikTokAction : disconnectAction)(c.id);
                 setBusy(undefined);
                 if (!r.ok) return setError(r.error);
                 setChannels(channels.filter((x) => x.id !== c.id));

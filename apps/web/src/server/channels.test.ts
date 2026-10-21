@@ -74,6 +74,21 @@ describe("plan channel limits (E1-04)", () => {
     expect(rows.filter((r) => r.status === "connected")).toHaveLength(3);
   });
 
+  it("a TikTok account doesn't count towards the YouTube channel limit", async () => {
+    const { finishYouTubeConnect, listChannels, channelAllowance } = await import("./channels");
+    await h.db.insert(schema.channels).values({
+      id: "ch_tt",
+      ownerId: SEED.userId,
+      platform: "tiktok",
+      externalId: "tt_open_1",
+      title: "My TikTok",
+      status: "connected",
+    });
+    await expect(finishYouTubeConnect(SEED.userId, "fake-code-yt")).resolves.toMatch(/^ch_/);
+    expect(await channelAllowance(SEED.userId)).toMatchObject({ connected: 1, overLimit: false });
+    expect((await listChannels(SEED.userId)).every((c) => c.publishable)).toBe(true);
+  });
+
   it("disconnecting one frees the slot", async () => {
     const { disconnect, finishYouTubeConnect } = await import("./channels");
     const [first] = await connectN(1);

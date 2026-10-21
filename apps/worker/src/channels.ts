@@ -16,12 +16,18 @@ export class ChannelLimitError extends ChannelError {
   }
 }
 
-/** Channels that count towards the plan limit: everything not disconnected (needs_reconnect still counts). */
+/** YouTube channels that count towards the plan limit: not disconnected (needs_reconnect still counts). */
 export async function countConnectedChannels(db: Db, ownerId: string) {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(schema.channels)
-    .where(and(eq(schema.channels.ownerId, ownerId), ne(schema.channels.status, "disconnected")));
+    .where(
+      and(
+        eq(schema.channels.ownerId, ownerId),
+        eq(schema.channels.platform, "youtube"),
+        ne(schema.channels.status, "disconnected"),
+      ),
+    );
   return row?.n ?? 0;
 }
 

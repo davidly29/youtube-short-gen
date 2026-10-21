@@ -14,16 +14,24 @@ export const STATE_COOKIE = "yt_oauth_state";
 
 type ChannelRow = typeof schema.channels.$inferSelect;
 
+/**
+ * The channels a plan's channel limit counts: the user's YouTube channels that aren't disconnected. TikTok and
+ * Instagram accounts (E8-03/E8-04) are outside the E1-04 limit until the owner decides how they count.
+ */
+const limitedChannels = (userId: string) =>
+  and(
+    eq(schema.channels.ownerId, userId),
+    eq(schema.channels.platform, "youtube"),
+    ne(schema.channels.status, "disconnected"),
+  );
+
 /** The user's channel allowance (E1-04): Free/Creator 1, Pro 3; admins unlimited (`limit: null`). */
 export async function channelAllowance(userId: string, db?: Db) {
   const conn = db ?? (await runtime()).db;
   const [sub, access, rows] = await Promise.all([
     currentSubscription(conn, userId),
     accessOf(userId),
-    conn
-      .select()
-      .from(schema.channels)
-      .where(and(eq(schema.channels.ownerId, userId), ne(schema.channels.status, "disconnected"))),
+    conn.select().from(schema.channels).where(limitedChannels(userId)),
   ]);
   const plan = sub && sub.plan && sub.status !== "canceled" ? PlanId.parse(sub.plan) : null;
   const max = maxChannelsFor(plan, access);
@@ -74,7 +82,7 @@ export async function listChannels(userId: string) {
       status: r.status,
       active: r.active,
       /** False while the user is over their plan's channel limit and hasn't kept this one (E1-04). */
-      publishable: allowance.publishable.has(r.id),
+      publishable: r.platform === "youtube" ? allowance.publishable.has(r.id) : r.status === "connected",
     }));
 }
 export type ChannelView = Awaited<ReturnType<typeof listChannels>>[number];
@@ -111,14 +119,11 @@ export async function chooseActiveChannels(userId: string, input: unknown) {
   const mine = await db
     .select({ id: schema.channels.id })
     .from(schema.channels)
-    .where(and(eq(schema.channels.ownerId, userId), ne(schema.channels.status, "disconnected")));
+    .where(limitedChannels(userId));
   const owned = new Set(mine.map((r) => r.id));
   if (!ids.every((id) => owned.has(id))) throw new UserError("Channel not found");
   const now = new Date().toISOString();
-  await db
-    .update(schema.channels)
-    .set({ active: false, updatedAt: now })
-    .where(and(eq(schema.channels.ownerId, userId), ne(schema.channels.status, "disconnected")));
+  await db.update(schema.channels).set({ active: false, updatedAt: now }).where(limitedChannels(userId));
   await db
     .update(schema.channels)
     .set({ active: true, updatedAt: now })
@@ -167,5 +172,11 @@ export async function disconnect(userId: string, channelId: string) {
     where: and(eq(schema.channels.id, channelId), eq(schema.channels.ownerId, userId)),
   });
   if (!ch) throw new UserError("Channel not found");
-  await disconnectChannel(rt.db, rt.box, rt.youtube, userId, channelId);
+  await disconnectChannel(
+    rt.db,
+    rt.box,
+    ch.platform === "youtube" ? rt.youtube : undefined,
+    userId,
+    channelId,
+  );
 }
