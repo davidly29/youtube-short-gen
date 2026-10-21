@@ -1,14 +1,87 @@
 "use client";
-import { AlertTriangle, Link2Off, MonitorPlay } from "lucide-react";
+import { AlertTriangle, Link2Off, MonitorPlay, PauseCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { disconnectAction } from "../../app/(app)/actions";
+import { chooseActiveChannelsAction, disconnectAction } from "../../app/(app)/actions";
 import type { ChannelView } from "../server/channels";
 import { Badge, Button, Card, ErrorText } from "./ui";
+
+/** Over the plan's channel limit (after a downgrade): pick which channels keep publishing (E1-04). */
+export function ChooseActiveChannels({
+  channels,
+  limit,
+  planName,
+}: {
+  channels: ChannelView[];
+  limit: number;
+  planName: string;
+}) {
+  const router = useRouter();
+  const [picked, setPicked] = useState<string[]>(() =>
+    channels.filter((c) => c.publishable).map((c) => c.id),
+  );
+  const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  return (
+    <Card data-testid="choose-active">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <PauseCircle className="size-5 text-warn" aria-hidden /> Choose which channels stay active
+      </h2>
+      <p className="mt-1 text-sm text-ink-soft">
+        Your {planName} plan includes {limit} channel{limit === 1 ? "" : "s"}. The others stay connected but
+        paused (no publishing) until you upgrade or swap them here.{" "}
+        <a href="/billing" className="font-semibold text-brand">
+          Upgrade
+        </a>
+      </p>
+      <ul className="mt-4 space-y-2">
+        {channels.map((c) => (
+          <li key={c.id}>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                data-testid={`keep-${c.id}`}
+                checked={picked.includes(c.id)}
+                disabled={!picked.includes(c.id) && picked.length >= limit}
+                onChange={(e) =>
+                  setPicked(e.target.checked ? [...picked, c.id] : picked.filter((x) => x !== c.id))
+                }
+              />
+              {c.title}
+            </label>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex items-center gap-3">
+        <Button
+          data-testid="save-active"
+          loading={saving}
+          disabled={picked.length === 0}
+          onClick={async () => {
+            setSaving(true);
+            setError(undefined);
+            const r = await chooseActiveChannelsAction(picked);
+            setSaving(false);
+            if (!r.ok) return setError(r.error);
+            router.refresh();
+          }}
+        >
+          Keep {picked.length} active
+        </Button>
+        <span className="text-xs text-ink-soft">
+          {picked.length}/{limit} picked
+        </span>
+      </div>
+      <ErrorText>{error}</ErrorText>
+    </Card>
+  );
+}
 
 export function ChannelList({ initial }: { initial: ChannelView[] }) {
   const [channels, setChannels] = useState(initial);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState<string>();
+  const router = useRouter();
   if (channels.length === 0) {
     return (
       <p className="text-sm text-ink-soft" data-testid="no-channels">
@@ -38,8 +111,12 @@ export function ChannelList({ initial }: { initial: ChannelView[] }) {
                     Reconnect
                   </a>
                 </p>
-              ) : (
+              ) : c.publishable ? (
                 <Badge tone="good">Connected</Badge>
+              ) : (
+                <span data-testid="channel-paused">
+                  <Badge tone="warn">Paused: over your plan’s channel limit</Badge>
+                </span>
               )}
             </div>
             <Button
@@ -51,6 +128,7 @@ export function ChannelList({ initial }: { initial: ChannelView[] }) {
                 setBusy(undefined);
                 if (!r.ok) return setError(r.error);
                 setChannels(channels.filter((x) => x.id !== c.id));
+                router.refresh(); // the plan limit may now fit, so paused channels can publish again
               }}
             >
               <Link2Off className="size-4" aria-hidden /> Disconnect

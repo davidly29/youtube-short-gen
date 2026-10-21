@@ -28,6 +28,8 @@ export {
   channelAccessToken,
   channelAad,
   ChannelError,
+  ChannelLimitError,
+  countConnectedChannels,
   connectYouTubeChannel,
   disconnectChannel,
 } from "./channels";

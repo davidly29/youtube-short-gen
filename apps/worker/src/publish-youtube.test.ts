@@ -25,7 +25,13 @@ import {
   type YouTubeClient,
 } from "@shortloop/providers";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { channelAad, connectYouTubeChannel, disconnectChannel } from "./channels";
+import {
+  ChannelLimitError,
+  channelAad,
+  connectYouTubeChannel,
+  countConnectedChannels,
+  disconnectChannel,
+} from "./channels";
 import { requeueHeldPublishes } from "./publish";
 import { createWorker } from "./worker";
 
@@ -450,5 +456,25 @@ describe("connect a YouTube channel (E8-01)", () => {
       /another ShortLoop account/,
     );
     expect(yt.revoked).toHaveLength(1);
+  });
+
+  it("refuses a channel over the plan limit (and revokes the grant), but still allows reconnecting one (E1-04)", async () => {
+    await addChannel("refresh-existing");
+    expect(await countConnectedChannels(h.db, SEED.userId)).toBe(1);
+    const extra = new FakeYouTube(undefined, { id: "UC_second", title: "Second" });
+    await expect(
+      connectYouTubeChannel(h.db, box, extra, SEED.userId, "fake-code", { maxChannels: 1 }),
+    ).rejects.toBeInstanceOf(ChannelLimitError);
+    expect(extra.revoked).toHaveLength(1);
+    expect(await countConnectedChannels(h.db, SEED.userId)).toBe(1);
+
+    const same = new FakeYouTube(undefined, { id: `UC_${CH}`, title: "Octo Facts" });
+    await expect(
+      connectYouTubeChannel(h.db, box, same, SEED.userId, "fake-code", { maxChannels: 1 }),
+    ).resolves.toBe(CH);
+    await expect(
+      connectYouTubeChannel(h.db, box, extra, SEED.userId, "fake-code", { maxChannels: 2 }),
+    ).resolves.toMatch(/^ch_/);
+    expect(await countConnectedChannels(h.db, SEED.userId)).toBe(2);
   });
 });

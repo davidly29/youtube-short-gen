@@ -53,8 +53,8 @@ export async function handleWebhook(rawBody: string, signature: string) {
   return { ok: true as const, result: await applyBillingEvent(rt.db, event, rt.prices) };
 }
 
-/** Fake mode only: what Stripe would send after a successful test checkout or a portal cancel. */
-export async function fakeStripe(kind: "checkout" | "cancel", userId: string, priceId?: string) {
+/** Fake mode only: what Stripe would send after a successful test checkout, or a portal cancel / plan change. */
+export async function fakeStripe(kind: "checkout" | "cancel" | "change", userId: string, priceId?: string) {
   const rt = await runtime();
   if (!rt.fake || rt.billing?.provider !== "fake") throw new UserError("Not available");
   const fake = rt.billing as FakeBilling;
@@ -96,19 +96,33 @@ export async function fakeStripe(kind: "checkout" | "cancel", userId: string, pr
             periodEnd: end,
           },
         ]
-      : [
-          {
-            kind: "subscription_changed",
-            eventId: `evt_cancel_${n}`,
-            userId,
-            customerId,
-            subscriptionId: `sub_fake_${userId}`,
-            priceId: Object.entries(rt.prices).find(([, v]) => v === sub?.plan)?.[0],
-            status: "active",
-            currentPeriodEnd: sub?.currentPeriodEnd ?? end,
-            cancelAtPeriodEnd: true,
-          },
-        ];
+      : kind === "change"
+        ? [
+            {
+              kind: "subscription_changed",
+              eventId: `evt_change_${n}`,
+              userId,
+              customerId,
+              subscriptionId: `sub_fake_${userId}`,
+              priceId,
+              status: "active",
+              currentPeriodEnd: sub?.currentPeriodEnd ?? end,
+              cancelAtPeriodEnd: false,
+            },
+          ]
+        : [
+            {
+              kind: "subscription_changed",
+              eventId: `evt_cancel_${n}`,
+              userId,
+              customerId,
+              subscriptionId: `sub_fake_${userId}`,
+              priceId: Object.entries(rt.prices).find(([, v]) => v === sub?.plan)?.[0],
+              status: "active",
+              currentPeriodEnd: sub?.currentPeriodEnd ?? end,
+              cancelAtPeriodEnd: true,
+            },
+          ];
   for (const e of events) {
     const body = JSON.stringify(e);
     await handleWebhook(body, fake.sign(body));

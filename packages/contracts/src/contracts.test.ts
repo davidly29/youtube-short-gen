@@ -26,6 +26,7 @@ import {
 } from "./fixtures";
 import { DEFAULT_NICHES, Niche, Topic, TrendSignal } from "./trends";
 import { Brief, BriefItem, FormatSlug } from "./brief";
+import { FREE_MAX_CHANNELS, PLANS, maxChannelsFor } from "./billing";
 
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
   expect(schema.safeParse(v).success).toBe(true);
@@ -228,5 +229,20 @@ describe("Brief (E3-03)", () => {
   });
   it("uses the playbook slugs", () => {
     expect(FormatSlug.options).toEqual(["trend-explainer", "myth-vs-fact", "top-3-list", "news-in-60s"]);
+  });
+});
+
+describe("channel limits per plan (E1-04)", () => {
+  it("Free and Creator allow one channel, Pro three", () => {
+    expect(FREE_MAX_CHANNELS).toBe(1);
+    expect(maxChannelsFor(null)).toBe(1);
+    expect(maxChannelsFor("creator")).toBe(PLANS.creator.maxChannels);
+    expect(maxChannelsFor("creator")).toBe(1);
+    expect(maxChannelsFor("pro")).toBe(3);
+  });
+  it("beta (credit-exempt) users get at least Pro's allowance; admins have no limit", () => {
+    expect(maxChannelsFor(null, { unlimited: true })).toBe(3);
+    expect(maxChannelsFor("creator", { unlimited: true })).toBe(3);
+    expect(maxChannelsFor(null, { admin: true, unlimited: true })).toBe(Number.POSITIVE_INFINITY);
   });
 });
