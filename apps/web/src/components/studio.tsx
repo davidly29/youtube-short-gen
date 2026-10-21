@@ -793,7 +793,9 @@ const when = (iso?: string | null) =>
 
 function PublishPanel({ view, onChanged }: { view: View; onChanged: () => Promise<void> }) {
   const done = new Set(view.publishes.filter((x) => x.status !== "failed").map((x) => x.channelId));
-  const connected = view.channels.filter((c) => c.platform === "youtube" && c.status === "connected");
+  const youtube = view.channels.filter((c) => c.platform === "youtube" && c.status === "connected");
+  const connected = youtube.filter((c) => c.publishable);
+  const paused = youtube.filter((c) => !c.publishable);
   const available = connected.filter((c) => !done.has(c.id));
   const [channelId, setChannelId] = useState(available[0]?.id ?? "");
   useEffect(() => {
@@ -866,7 +868,16 @@ function PublishPanel({ view, onChanged }: { view: View; onChanged: () => Promis
           })}
         </ul>
       )}
-      {connected.length === 0 ? (
+      {paused.length > 0 && (
+        <p className="mt-3 text-sm text-ink-soft" data-testid="paused-channels-hint">
+          {paused.length === 1 ? "1 channel is" : `${paused.length} channels are`} paused because your plan
+          includes fewer channels.{" "}
+          <a href="/channels" className="font-semibold text-brand">
+            Choose which stay active
+          </a>
+        </p>
+      )}
+      {connected.length === 0 && paused.length > 0 ? null : connected.length === 0 ? (
         <p className="mt-3 text-sm text-ink-soft" data-testid="no-channel-hint">
           <a href="/channels" className="font-semibold text-brand">
             Connect a YouTube channel

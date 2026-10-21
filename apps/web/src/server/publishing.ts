@@ -4,6 +4,7 @@ import { PublishRequest, publishIdempotencyKey } from "@shortloop/contracts";
 import { and, desc, eq, schema } from "@shortloop/db";
 import { recordAudit, withSpan } from "@shortloop/pipeline";
 import { z } from "zod";
+import { assertChannelPublishable } from "./channels";
 import { UserError } from "./errors";
 import { runtime } from "./runtime";
 
@@ -58,6 +59,7 @@ async function requestPublish(
     throw new UserError("Pick one of your connected YouTube channels.");
   if (ch.status === "needs_reconnect")
     throw new UserError("YouTube access for this channel expired. Reconnect it in Channels first.");
+  await assertChannelPublishable(userId, ch.id);
   if (form.scheduledAt && new Date(form.scheduledAt).getTime() < Date.now() + 15 * 60_000) {
     throw new UserError("Schedule at least 15 minutes ahead, or publish now.");
   }
