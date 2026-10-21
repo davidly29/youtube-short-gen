@@ -1,4 +1,4 @@
-import { Asset, Job, PublishRequest, Script, Timeline } from "@shortloop/contracts";
+import { Asset, ChannelStyle, Job, PublishRequest, Script, Timeline } from "@shortloop/contracts";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, type DbHandle } from "./client";
@@ -13,6 +13,7 @@ import {
   projects,
   publishRecords,
   scripts,
+  styleProfiles,
   timelines,
   users,
 } from "./schema";
@@ -67,6 +68,7 @@ describe("migrations", () => {
       "provider_routing",
       "publish_records",
       "scripts",
+      "style_profiles",
       "subscriptions",
       "timelines",
       "trend_signals",
@@ -78,7 +80,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(29);
+    expect(await tableNames()).toHaveLength(30);
   });
 });
 
@@ -140,6 +142,43 @@ describe("round trips validate against the contracts", () => {
     const job = Job.parse(toJob(must(row)));
     expect(job.status).toBe("queued");
     expect(job.progress).toBe(0);
+  });
+
+  it("style profile (E4-03), removed with its channel", async () => {
+    await h.db.insert(channels).values({
+      id: "ch_s",
+      ownerId: SEED.userId,
+      platform: "youtube",
+      externalId: "UCstyle",
+      title: "History Fast",
+    });
+    const profile = {
+      vocabulary: ["empire", "legion"],
+      sentenceLength: 7.1,
+      hookPatterns: ["Why the …"],
+      bannedPhrases: ["let's dive in"],
+      examples: ["Why the Roman legion almost never retreated"],
+    };
+    await h.db.insert(styleProfiles).values({
+      channelId: "ch_s",
+      ownerId: SEED.userId,
+      profile,
+      sourceVideoCount: 12,
+    });
+    const row = must(
+      await h.db.query.styleProfiles.findFirst({ where: eq(styleProfiles.channelId, "ch_s") }),
+    );
+    const parsed = ChannelStyle.parse({
+      channelId: row.channelId,
+      profile: row.profile,
+      sourceVideoCount: row.sourceVideoCount,
+      enabled: row.enabled,
+      builtAt: new Date(row.builtAt).toISOString(),
+    });
+    expect(parsed.profile).toEqual(profile);
+    expect(parsed.enabled).toBe(true);
+    await h.db.delete(channels).where(eq(channels.id, "ch_s"));
+    expect(await h.db.select().from(styleProfiles)).toHaveLength(0);
   });
 
   it("publish record", async () => {

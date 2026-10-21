@@ -15,7 +15,14 @@ export interface NewShortDefaults {
   topicId?: string;
 }
 
-export function NewShortForm({ defaults = {} }: { defaults?: NewShortDefaults }) {
+export function NewShortForm({
+  defaults = {},
+  voices = [],
+}: {
+  defaults?: NewShortDefaults;
+  /** Channels whose voice profile is switched on (E4-03); the first is preselected. */
+  voices?: { id: string; title: string }[];
+}) {
   const router = useRouter();
   const [length, setLength] = useState<(typeof LENGTHS)[number]>(45);
   const [error, setError] = useState<string>();
@@ -32,6 +39,7 @@ export function NewShortForm({ defaults = {} }: { defaults?: NewShortDefaults })
       targetSeconds: length,
       tone: String(f.get("tone") ?? "curious"),
       topicId: defaults.topicId,
+      styleChannelId: String(f.get("voice") ?? "") || undefined,
     });
     if (!res.ok) {
       setLoading(false);
@@ -100,6 +108,19 @@ export function NewShortForm({ defaults = {} }: { defaults?: NewShortDefaults })
             </Select>
           </div>
         </div>
+        {voices.length > 0 && (
+          <div>
+            <Label htmlFor="voice">Write it in the voice of</Label>
+            <Select id="voice" name="voice" defaultValue={voices[0]?.id} data-testid="voice-select">
+              {voices.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.title}
+                </option>
+              ))}
+              <option value="">No channel voice</option>
+            </Select>
+          </div>
+        )}
         <ErrorText>{error}</ErrorText>
         <div className="flex justify-end">
           <Button type="submit" loading={loading}>

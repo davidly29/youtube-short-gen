@@ -1,6 +1,6 @@
 export * from "./youtube";
 export { HttpYouTube } from "./http";
-export { FakeYouTube } from "./fake";
+export { FAKE_OWN_VIDEOS, FakeYouTube } from "./fake";
 import { HttpYouTube } from "./http";
 import type { YouTubeClient } from "./youtube";
 
