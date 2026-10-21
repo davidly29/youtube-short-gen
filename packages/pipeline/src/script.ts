@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { Script } from "@shortloop/contracts";
+import { Script, type StyleProfile } from "@shortloop/contracts";
 import { LLMOutputError, type LLM } from "@shortloop/providers";
 import { z } from "zod";
+import { bannedPhrasesIn, styleNotes } from "./style";
 
 export const WORDS_PER_SECOND = 2.6;
 
@@ -12,8 +13,10 @@ export interface ScriptRequest {
   targetSeconds: 30 | 45 | 60;
   tone: string;
   language: string;
-  /** Optional channel voice notes (E4-03 builds these from the creator's own videos). */
+  /** Optional free-text channel voice notes. */
   channelStyle?: string;
+  /** The channel's voice profile, learned from the creator's own videos (E4-03). */
+  styleProfile?: StyleProfile;
 }
 
 /** What we ask the model for. Ids, word counts and durations are computed by us, not trusted from the model. */
@@ -45,7 +48,7 @@ export function scriptWordCount(d: { beats: { text: string }[]; cta: string }): 
 }
 
 /** Quality rules from the ticket: hook ≤ 12 words and first, 4–8 beats, visual per beat, length ±10%. */
-export function checkDraft(d: Draft, targetSeconds: number): string[] {
+export function checkDraft(d: Draft, targetSeconds: number, bannedPhrases: readonly string[] = []): string[] {
   const problems: string[] = [];
   const target = targetWords(targetSeconds);
   const words = scriptWordCount(d);
@@ -61,6 +64,11 @@ export function checkDraft(d: Draft, targetSeconds: number): string[] {
   )
     problems.push("the first beat must open with the hook");
   if (d.beats.some((b) => !b.visualQuery.trim())) problems.push("every beat needs a visualQuery");
+  const banned = bannedPhrasesIn(
+    [d.title, d.hook, ...d.beats.map((b) => b.text), d.cta].join("\n"),
+    bannedPhrases,
+  );
+  if (banned.length) problems.push(`never use these phrases: ${banned.map((b) => `"${b}"`).join(", ")}`);
   if (Math.abs(words - target) > target * 0.1)
     problems.push(`script has ${words} spoken words; target is ${target} (±10%) for ${targetSeconds}s`);
   return problems;
@@ -74,10 +82,13 @@ function systemPrompt(req: ScriptRequest): string {
     "- 4 to 8 beats. One idea per beat. Each beat is one or two spoken sentences.",
     "- Every beat has a visualQuery: a concrete, filmable description (subject, action, setting) for stock or AI visuals. No text-on-screen requests, no real people, no brands or characters.",
     "- Present nothing as fact you are unsure of; mark uncertain claims with [verify] at the end of the sentence.",
-    "- Never quote named real people. Never imitate a specific creator.",
+    req.styleProfile
+      ? "- Never quote named real people. Never imitate any other creator: the voice notes below are this channel's own."
+      : "- Never quote named real people. Never imitate a specific creator.",
     `- Total spoken words (beats + cta) must be ${targetWords(req.targetSeconds)} ±10% for a ${req.targetSeconds}-second video at ${WORDS_PER_SECOND} words/second.`,
     `- Language: ${req.language}. Tone: ${req.tone}.`,
     req.channelStyle ? `- Match this channel's voice: ${req.channelStyle}` : "",
+    req.styleProfile ? styleNotes(req.styleProfile) : "",
     'Return JSON: {"title": string, "hook": string, "beats": [{"text": string, "visualQuery": string}], "cta": string}',
   ]
     .filter(Boolean)
@@ -116,7 +127,7 @@ export async function generateScript(llm: LLM, req: ScriptRequest): Promise<Scri
       }
       throw e;
     }
-    const problems = checkDraft(draft, req.targetSeconds);
+    const problems = checkDraft(draft, req.targetSeconds, req.styleProfile?.bannedPhrases);
     if (problems.length === 0) return toScript(draft, req);
     feedback = problems;
   }
