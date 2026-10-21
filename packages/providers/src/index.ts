@@ -22,3 +22,4 @@ export * from "./youtube";
 export { cassette, type Cassette, type CassetteEntry } from "./testing/cassette";
 export * from "./trends";
 export * from "./tiktok";
+export * from "./instagram";
