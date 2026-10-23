@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Id } from "./common";
 
 /** One BullMQ queue per pipeline stage (E0-04). */
-export const JobType = z.enum(["script", "voice", "visuals", "render", "publish", "trends"]);
+export const JobType = z.enum(["script", "voice", "visuals", "render", "publish", "trends", "analytics"]);
 export const JobStatus = z.enum(["queued", "running", "succeeded", "failed", "cancelled"]);
 
 export const Job = z.object({
