@@ -72,7 +72,11 @@ export const WebhookUrl = z
 
 export const CreateWebhook = z.object({
   url: WebhookUrl,
-  events: z.array(WebhookEventType).min(1).max(WEBHOOK_EVENTS.length).default([...WEBHOOK_EVENTS]),
+  events: z
+    .array(WebhookEventType)
+    .min(1)
+    .max(WEBHOOK_EVENTS.length)
+    .default([...WEBHOOK_EVENTS]),
 });
 
 export const Webhook = z.object({
@@ -84,7 +88,9 @@ export const Webhook = z.object({
 export type Webhook = z.infer<typeof Webhook>;
 
 export const WebhookCreated = Webhook.extend({
-  secret: z.string().describe("Signing secret (whsec_...). Shown once: store it to verify ShortLoop-Signature."),
+  secret: z
+    .string()
+    .describe("Signing secret (whsec_...). Shown once: store it to verify ShortLoop-Signature."),
 });
 
 export const DeliveryStatus = z.enum(["pending", "delivered", "failed"]);

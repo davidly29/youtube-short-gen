@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, CreatePublicApiKey, CreateWebhook, WEBHOOK_EVENTS, WebhookPayload, WebhookUrl } from "./api";
+import {
+  ApiError,
+  CreatePublicApiKey,
+  CreateWebhook,
+  WEBHOOK_EVENTS,
+  WebhookPayload,
+  WebhookUrl,
+} from "./api";
 
 describe("public API contracts (E12-01)", () => {
   it("webhook URLs must be public https", () => {
@@ -25,9 +32,9 @@ describe("public API contracts (E12-01)", () => {
     const w = CreateWebhook.parse({ url: "https://hooks.example.com/a" });
     expect(w.events).toEqual([...WEBHOOK_EVENTS]);
     expect(CreateWebhook.safeParse({ url: "https://hooks.example.com/a", events: [] }).success).toBe(false);
-    expect(CreateWebhook.safeParse({ url: "https://hooks.example.com/a", events: ["job.nope"] }).success).toBe(
-      false,
-    );
+    expect(
+      CreateWebhook.safeParse({ url: "https://hooks.example.com/a", events: ["job.nope"] }).success,
+    ).toBe(false);
   });
 
   it("key names are required and short", () => {
