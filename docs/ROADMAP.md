@@ -99,6 +99,8 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 
 | Issue | Ticket | Title                             | Blocked by | Status          |
 | ----- | ------ | --------------------------------- | ---------- | --------------- |
+| #34   | E4-03  | Channel voice profile (Q2)        | #11, #22   | open            |
+| #35   | E13-03 | Music and audio rights check (Q2) | #8         | in review (#97) |
 | #34   | E4-03  | Channel voice profile (Q2)        | #11, #22   | in review (#95) |
 | #35   | E13-03 | Music and audio rights check (Q2) | #8         | open            |
 

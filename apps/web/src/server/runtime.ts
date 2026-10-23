@@ -18,7 +18,10 @@ import {
   FakeTrendCollector,
   FakeTTS,
   type BillingProvider,
+  FakeFingerprint,
   FakeYouTube,
+  fingerprintFromEnv,
+  fingerprintRequired,
   youtubeFromEnv,
   type YouTubeClient,
   managedProvidersFromEnv,
@@ -165,6 +168,9 @@ async function build(): Promise<Runtime> {
         ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
         : undefined,
       trendCollectors: allInOneTrendCollectors(fake()),
+      // Commercial-music check on uploaded audio before publishing (E13-03).
+      fingerprint: fake() ? new FakeFingerprint() : fingerprintFromEnv(),
+      requireMusicCheck: fingerprintRequired(),
     });
     // All-in-one mode: this process also releases posts held for YouTube's daily quota.
     const j = jobs;

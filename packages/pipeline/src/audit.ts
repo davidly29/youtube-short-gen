@@ -42,6 +42,11 @@ function toEvent(row: Row): (AuditEvent & { at: string }) | undefined {
 export interface PublishChecks {
   rights: "passed" | "failed" | "pending";
   variation: "passed" | "overridden" | "failed" | "pending";
+  /**
+   * Commercial-music check on user-supplied audio (E13-03). `skipped`: no recognition service is configured.
+   * Absent on publishes recorded before the check existed.
+   */
+  music?: "passed" | "failed" | "skipped" | "pending";
 }
 
 export interface PublishExplanation {
@@ -100,7 +105,11 @@ export async function explainPublish(db: Db, publishId: string): Promise<Publish
     traceId: requested?.traceId ?? outcome?.traceId,
     status: rec.status,
     assets,
-    checks: { rights: checks.rights ?? "pending", variation: checks.variation ?? "pending" },
+    checks: {
+      rights: checks.rights ?? "pending",
+      variation: checks.variation ?? "pending",
+      ...(checks.music ? { music: checks.music } : {}),
+    },
     events,
   };
 }
