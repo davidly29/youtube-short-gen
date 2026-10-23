@@ -106,8 +106,8 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 
 | Issue | Ticket | Title                    | Blocked by | Status          |
 | ----- | ------ | ------------------------ | ---------- | --------------- |
-| #36   | E10-01 | Performance ingest       | #23        | in review (#PR) |
-| #37   | E10-02 | Feature store for Shorts | #36        | in review (#PR) |
+| #36   | E10-01 | Performance ingest       | #23        | in review (#98) |
+| #37   | E10-02 | Feature store for Shorts | #36        | in review (#98) |
 | #38   | E10-03 | Per-channel recommender  | #37, #30   | open            |
 
 ## S15–S17
