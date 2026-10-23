@@ -683,3 +683,85 @@ export const styleProfiles = pgTable("style_profiles", {
   builtAt: timestamp("built_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   editedAt: timestamp("edited_at", { withTimezone: true, mode: "string" }),
 });
+
+/**
+ * Public REST API keys (E12-01). Only a SHA-256 hash of the key is stored, plus its first characters for display.
+ * Keys belong to a user (their personal workspace) until workspaces arrive with E11-01.
+ */
+export const publicApiKeys = pgTable(
+  "public_api_keys",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    hash: text("hash").notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "string" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "string" }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("public_api_keys_hash").on(t.hash), index("public_api_keys_owner").on(t.ownerId)],
+);
+
+/** Fixed one-minute request windows per API key (E12-01). Shared by every web instance. */
+export const apiRateWindows = pgTable(
+  "api_rate_windows",
+  {
+    keyId: text("key_id")
+      .notNull()
+      .references(() => publicApiKeys.id, { onDelete: "cascade" }),
+    windowStart: timestamp("window_start", { withTimezone: true, mode: "string" }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [uniqueIndex("api_rate_windows_key_window").on(t.keyId, t.windowStart)],
+);
+
+/** Where to POST `job.succeeded`, `job.failed` and `publish.completed` (E12-01). `secret` is sealed (SecretBox). */
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    events: jsonb("events").$type<string[]>().notNull(),
+    secret: text("secret").notNull(),
+    disabledAt: timestamp("disabled_at", { withTimezone: true, mode: "string" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("webhooks_owner").on(t.ownerId)],
+);
+
+export const webhookDeliveryStatus = pgEnum("webhook_delivery_status", ["pending", "delivered", "failed"]);
+
+/** One row per (webhook, event): the unique key makes detection idempotent across instances and restarts. */
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: text("id").primaryKey(),
+    webhookId: text("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    /** e.g. `job.succeeded:job_123`. */
+    eventKey: text("event_key").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: webhookDeliveryStatus("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+    responseStatus: integer("response_status"),
+    error: text("error"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true, mode: "string" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("webhook_deliveries_event").on(t.webhookId, t.eventKey),
+    index("webhook_deliveries_due").on(t.status, t.nextAttemptAt),
+  ],
+);
