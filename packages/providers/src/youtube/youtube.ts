@@ -1,7 +1,12 @@
-/** Only what publishing needs: upload videos, and read the channel they go to. */
+/**
+ * Only what we need: upload videos, read the channel they go to, and read that channel's own analytics
+ * (E10-01, read-only; channels connected before it was added keep publishing and are asked to reconnect
+ * for stats).
+ */
 export const YOUTUBE_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube.readonly",
+  "https://www.googleapis.com/auth/yt-analytics.readonly",
 ] as const;
 
 export interface YouTubeOAuthConfig {

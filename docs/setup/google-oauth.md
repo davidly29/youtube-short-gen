@@ -4,9 +4,9 @@ ShortLoop uses one Google OAuth client for two things: **connecting YouTube chan
 **"Sign in with Google"**. Until it's set, the Channels page says publishing isn't switched on.
 
 1. Go to <https://console.cloud.google.com/> and create a project, e.g. `ShortLoop`.
-2. **APIs & Services → Library**: enable **YouTube Data API v3** (and YouTube Analytics API for E10 later).
+2. **APIs & Services → Library**: enable **YouTube Data API v3** and **YouTube Analytics API** (Short stats, E10-01).
 3. **OAuth consent screen**: User type **External**. App name `ShortLoop`, your support email, and the app domain.
-   Add scopes `.../auth/youtube.upload` and `.../auth/youtube.readonly`. While the app is in **Testing**, add your
+   Add scopes `.../auth/youtube.upload`, `.../auth/youtube.readonly` and `.../auth/yt-analytics.readonly`. While the app is in **Testing**, add your
    own Google account (and any beta users) under **Test users**. Only they can connect until Google verifies the app.
 4. **Credentials → Create credentials → OAuth client ID → Web application**. Authorised redirect URIs:
    - `https://web-staging-0f0b5.up.railway.app/api/channels/youtube/callback`
@@ -14,7 +14,8 @@ ShortLoop uses one Google OAuth client for two things: **connecting YouTube chan
    - `http://localhost:3000/api/channels/youtube/callback` and `http://localhost:3000/api/auth/callback/google` (local dev)
 5. In Railway → `shortloop` → `staging` → `web` → Variables, add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
    Never put them in the repo or in chat.
-6. Open the app → **Channels → Connect YouTube channel**, approve both permissions, then publish an approved Short.
+6. Open the app → **Channels → Connect YouTube channel**, approve the permissions, then publish an approved Short.
+   Its stats appear on **Your Shorts** (see `docs/setup/analytics.md`).
 
 Notes
 

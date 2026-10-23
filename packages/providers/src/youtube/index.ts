@@ -20,3 +20,14 @@ export function youtubeFromEnv(
     fetchImpl,
   );
 }
+export {
+  AnalyticsScopeMissing,
+  daysBetween,
+  FakeYouTubeAnalytics,
+  hasAnalyticsScope,
+  HttpYouTubeAnalytics,
+  YOUTUBE_ANALYTICS_SCOPE,
+  type VideoDayMetrics,
+  type VideoMetricsQuery,
+  type YouTubeAnalyticsClient,
+} from "./analytics";

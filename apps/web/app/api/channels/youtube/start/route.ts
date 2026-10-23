@@ -5,7 +5,7 @@ import { startYouTubeConnect, STATE_COOKIE } from "../../../../../src/server/cha
 
 export const dynamic = "force-dynamic";
 
-/** Send the user to Google's consent screen (upload + readonly scopes only). */
+/** Send the user to Google's consent screen (upload, readonly and read-only analytics scopes only). */
 export async function GET(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.redirect(new URL("/sign-in", req.url));
