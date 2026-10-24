@@ -103,8 +103,15 @@ test.describe("E9-01 MCP server", () => {
 
     const agent = await connectAgent(page);
     const { tools } = await agent.listTools();
-    expect(tools).toHaveLength(13);
-    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(["list_workflows", "get_workflow"]));
+    expect(tools).toHaveLength(20);
+    expect(tools.map((t) => t.name)).toEqual(
+      expect.arrayContaining(["list_workflows", "get_workflow", "get_account", "get_short", "list_shorts"]),
+    );
+    const account = data<{ ai_scripts: boolean; channels: { title: string }[] }>(
+      await agent.callTool({ name: "get_account", arguments: {} }),
+    );
+    expect(account.ai_scripts).toBe(true);
+    expect(account.channels.map((c) => c.title)).toEqual(["Fake Channel"]);
 
     const balance = data<{ shorts: number }>(
       await agent.callTool({ name: "get_credit_balance", arguments: {} }),
@@ -133,6 +140,18 @@ test.describe("E9-01 MCP server", () => {
     }
     expect(job).toMatchObject({ done: true, status: "ready" });
     expect(job.video_url).toBeTruthy();
+
+    // MCP v2: the agent can inspect the Short (script, captions, app link) and find it again later.
+    const detail = data<{ script?: { beats: unknown[] }; captions?: unknown[]; app_url: string }>(
+      await agent.callTool({ name: "get_short", arguments: { project_id: created.project_id } }),
+    );
+    expect(detail.script?.beats.length).toBeGreaterThan(1);
+    expect(detail.captions?.length).toBeGreaterThan(0);
+    expect(detail.app_url).toBe(`${BASE}/projects/${created.project_id}`);
+    const listed = data<{ shorts: { project_id: string }[] }>(
+      await agent.callTool({ name: "list_shorts", arguments: { status: "ready" } }),
+    );
+    expect(listed.shorts.map((x) => x.project_id)).toContain(created.project_id);
 
     // Publishing before approval is refused (E9-01 acceptance).
     const early = (await agent.callTool({

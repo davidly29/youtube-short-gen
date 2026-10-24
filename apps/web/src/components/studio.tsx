@@ -181,8 +181,37 @@ function BusyPanel({ view }: { view: View }) {
         <span className="text-ink-soft">{Math.round(Math.min(1, progress) * 100)}%</span>
       </div>
       <Progress value={Math.min(1, progress)} />
+      <ol className="mt-4 grid gap-2 text-sm sm:grid-cols-4" data-testid="busy-stages">
+        {STAGE_LABELS.map((label, i) => (
+          <li
+            key={label}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-3 py-2",
+              i < stage
+                ? "border-good/30 bg-good/5 text-good"
+                : i === stage
+                  ? "border-brand/40 bg-brand-soft text-brand-deep"
+                  : "border-line text-ink-soft",
+            )}
+          >
+            {i < stage ? (
+              <Check className="size-4 shrink-0" aria-hidden />
+            ) : (
+              <span
+                className={cn(
+                  "size-2 shrink-0 rounded-full",
+                  i === stage ? "animate-pulse bg-brand" : "bg-line",
+                )}
+                aria-hidden
+              />
+            )}
+            {label}
+          </li>
+        ))}
+      </ol>
       <p className="mt-3 text-sm text-ink-soft">
-        You can leave this page. We’ll keep going in the background.
+        You can leave this page. We’ll keep going in the background, and the video shows up here when it’s
+        ready.
       </p>
     </Card>
   );
