@@ -135,7 +135,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BuiltBrief> {
     // An LLM line that fails the content policy falls back to the template for that topic.
     const usable = w && policyCheck(`${w.angle}\n${w.hook}`).allow;
     const base = usable ? { topicId: t.id, angle: w.angle, hook: w.hook, format: w.format } : templateItem(t);
-    return { ...base, whyNow: whyNow(t), sources: briefSources(t) };
+    return { ...base, velocity: t.velocity, whyNow: whyNow(t), sources: briefSources(t) };
   });
   return {
     date: input.date,

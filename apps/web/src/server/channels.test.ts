@@ -8,15 +8,23 @@ vi.mock("server-only", () => ({}));
 const g = globalThis as unknown as { __shortloop?: Promise<Runtime> };
 let h: DbHandle;
 let youtube: FakeYouTube;
+let enqueued: { type: string; input: Record<string, unknown>; key: string }[];
 
 beforeEach(async () => {
   h = openDb("memory://");
   await h.migrate();
   await seed(h.db);
   youtube = new FakeYouTube();
+  enqueued = [];
   g.__shortloop = Promise.resolve({
     db: h.db,
     youtube,
+    jobs: {
+      enqueue: async (type: string, input: Record<string, unknown>, opts: { idempotencyKey: string }) => {
+        enqueued.push({ type, input, key: opts.idempotencyKey });
+        return { id: `job_${enqueued.length}` };
+      },
+    },
     box: new SecretBox("web-channels-test-master-key-123"),
     fake: true,
   } as unknown as Runtime);
@@ -145,5 +153,29 @@ describe("plan channel limits (E1-04)", () => {
     // Upgrading again brings every channel back without another choice.
     await onPlan("pro");
     expect((await listChannels(SEED.userId)).every((x) => x.publishable)).toBe(true);
+  });
+});
+
+describe("stats backfill on connect (E10-01)", () => {
+  it("connecting (or reconnecting) a channel queues its 28-day stats backfill", async () => {
+    const [id] = await connectN(1);
+    expect(enqueued).toEqual([
+      {
+        type: "analytics",
+        input: { channelId: id, reason: "connect" },
+        key: expect.stringMatching(/^analytics:/),
+      },
+    ]);
+  });
+
+  it("a Free user at their limit can still reconnect a channel connected before stats existed", async () => {
+    const { startYouTubeConnect } = await import("./channels");
+    const [id] = await connectN(1);
+    await expect(startYouTubeConnect(SEED.userId)).rejects.toThrow(/Free plan includes 1/);
+    await h.db
+      .update(schema.channels)
+      .set({ scopes: "https://www.googleapis.com/auth/youtube.upload" })
+      .where(eq(schema.channels.id, String(id)));
+    await expect(startYouTubeConnect(SEED.userId)).resolves.toMatchObject({ state: expect.any(String) });
   });
 });

@@ -36,7 +36,7 @@ export class FakeYouTube implements YouTubeClient {
     return {
       refreshToken: `refresh-${randomUUID()}`,
       accessToken: `access-${code.replace(/^fake-code-?/, "") || "fake"}`,
-      scopes: ["youtube.upload", "youtube.readonly"],
+      scopes: ["youtube.upload", "youtube.readonly", "yt-analytics.readonly"],
     };
   }
   async accessToken(refreshToken: string) {

@@ -20,3 +20,5 @@ export * from "./grounding";
 export * from "./managed";
 export * from "./style";
 export * from "./webhooks";
+export * from "./features";
+export * from "./recommend";

@@ -11,7 +11,8 @@
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "export:features": "tsx src/analytics/export-features.ts"
   },
   "dependencies": {
     "@shortloop/contracts": "workspace:*",

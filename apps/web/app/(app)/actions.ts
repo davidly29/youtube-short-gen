@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redeemAccessCode } from "../../src/server/access";
+import { refreshStats } from "../../src/server/analytics";
 import { requireUser } from "../../src/server/auth";
 import { chooseActiveChannels, disconnect } from "../../src/server/channels";
 import { deleteKey, resetKeyHealth, saveKey, saveRouting } from "../../src/server/keys";
@@ -142,5 +143,11 @@ export async function publishAction(projectId: string, form: z.input<typeof Publ
 export async function redeemCodeAction(code: string) {
   const r = await wrap((uid) => redeemAccessCode(uid, code));
   revalidatePath("/", "layout");
+  return r;
+}
+
+export async function refreshStatsAction() {
+  const r = await wrap((uid) => refreshStats(uid));
+  revalidatePath("/projects");
   return r;
 }

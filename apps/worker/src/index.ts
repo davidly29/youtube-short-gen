@@ -55,3 +55,16 @@ export {
   type BriefJobInput,
 } from "./brief";
 export { buildStyleProfile, getChannelStyle, StyleError, styleForScript, updateChannelStyle } from "./style";
+export {
+  ANALYTICS_BACKFILL_DAYS,
+  analyticsHandler,
+  analyticsJobKey,
+  channelsMissingAnalytics,
+  enqueueAnalytics,
+  metricsWindow,
+  refreshAnalytics,
+  scheduleAnalytics,
+  shortPerformance,
+  startAnalyticsSchedule,
+  type AnalyticsJobInput,
+} from "./analytics";

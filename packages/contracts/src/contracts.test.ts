@@ -27,6 +27,7 @@ import {
 import { DEFAULT_NICHES, Niche, Topic, TrendSignal } from "./trends";
 import { Brief, BriefItem, FormatSlug } from "./brief";
 import { FREE_MAX_CHANNELS, PLANS, maxChannelsFor } from "./billing";
+import { Recommendation, RecommendationOverride } from "./analytics";
 
 const ok = (schema: { safeParse: (v: unknown) => { success: boolean } }, v: unknown) =>
   expect(schema.safeParse(v).success).toBe(true);
@@ -244,5 +245,37 @@ describe("channel limits per plan (E1-04)", () => {
     expect(maxChannelsFor(null, { unlimited: true })).toBe(3);
     expect(maxChannelsFor("creator", { unlimited: true })).toBe(3);
     expect(maxChannelsFor(null, { admin: true, unlimited: true })).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("Recommendation (E10-03)", () => {
+  const reason = (field: "preferredFormats" | "hookPatterns" | "targetSeconds" | "postHour") => ({
+    field,
+    source: "channel" as const,
+    text: "Kept 1.2× your average retention over 8 Shorts",
+    shorts: 8,
+    lift: 1.2,
+  });
+  const valid = {
+    channelId: "ch_1",
+    preferredFormats: ["myth-vs-fact", "top-3-list"],
+    hookPatterns: ["question", "number"],
+    targetSeconds: 45,
+    postHour: 17,
+    why: [reason("preferredFormats"), reason("hookPatterns"), reason("targetSeconds"), reason("postHour")],
+    basedOn: { shorts: 8, priorShorts: 40, priorChannels: 3 },
+  };
+  it("accepts a valid recommendation and override", () => {
+    ok(Recommendation, valid);
+    ok(RecommendationOverride, { targetSeconds: 30, note: "My audience likes short ones" });
+    ok(RecommendationOverride, {});
+  });
+  it("rejects unknown formats, odd lengths, bad hours and missing reasons", () => {
+    bad(Recommendation, { ...valid, preferredFormats: ["listicle"] });
+    bad(Recommendation, { ...valid, preferredFormats: [] });
+    bad(Recommendation, { ...valid, targetSeconds: 40 });
+    bad(Recommendation, { ...valid, postHour: 24 });
+    bad(Recommendation, { ...valid, why: valid.why.slice(1) });
+    bad(RecommendationOverride, { hookPatterns: ["shouting"] });
   });
 });

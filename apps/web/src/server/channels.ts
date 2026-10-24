@@ -3,7 +3,13 @@ import { randomBytes } from "node:crypto";
 import { PLANS, PlanId, maxChannelsFor } from "@shortloop/contracts";
 import { and, desc, eq, inArray, ne, schema, type Db } from "@shortloop/db";
 import { currentSubscription } from "@shortloop/pipeline";
-import { ChannelLimitError, connectYouTubeChannel, disconnectChannel } from "@shortloop/worker";
+import {
+  ChannelLimitError,
+  channelsMissingAnalytics,
+  connectYouTubeChannel,
+  disconnectChannel,
+  enqueueAnalytics,
+} from "@shortloop/worker";
 import { z } from "zod";
 import { accessOf } from "./access";
 import { UserError } from "./errors";
@@ -146,7 +152,10 @@ export async function startYouTubeConnect(userId: string): Promise<{ url: string
   if (!youtube) throw new UserError("YouTube publishing isn't set up on this server yet.");
   // Reconnecting an expired channel is always fine (the callback re-checks for new ones).
   const a = await channelAllowance(userId);
-  const reconnecting = (await listChannels(userId)).some((c) => c.status === "needs_reconnect");
+  // So is reconnecting a channel connected before stats were added, to grant read-only analytics (E10-01).
+  const reconnecting =
+    (await listChannels(userId)).some((c) => c.status === "needs_reconnect") ||
+    (await channelsMissingAnalytics((await runtime()).db, userId)).length > 0;
   if (a.atLimit && !reconnecting) throw new UserError(limitMessage(a));
   const state = randomBytes(24).toString("base64url");
   return { url: youtube.authUrl(state), state };
@@ -156,14 +165,22 @@ export async function finishYouTubeConnect(userId: string, code: string) {
   const rt = await runtime();
   if (!rt.youtube) throw new UserError("YouTube publishing isn't set up on this server yet.");
   const a = await channelAllowance(userId, rt.db);
+  let channelId: string;
   try {
-    return await connectYouTubeChannel(rt.db, rt.box, rt.youtube, userId, code, {
+    channelId = await connectYouTubeChannel(rt.db, rt.box, rt.youtube, userId, code, {
       maxChannels: a.limit ?? undefined,
     });
   } catch (e) {
     if (e instanceof ChannelLimitError) throw new UserError(limitMessage(a));
     throw e;
   }
+  // Backfill the last 28 days of stats for Shorts already on the channel (E10-01). Best effort.
+  try {
+    await enqueueAnalytics(rt.jobs, { id: channelId, ownerId: userId }, "connect", `connect:${Date.now()}`);
+  } catch (e) {
+    console.error("analytics backfill not queued", e);
+  }
+  return channelId;
 }
 
 export async function disconnect(userId: string, channelId: string) {

@@ -45,8 +45,8 @@ export default async function ChannelsPage({
             </h2>
             <p className="mt-1 flex items-start gap-1.5 text-sm text-ink-soft">
               <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-              We ask only to upload videos and read your channel name. We can’t delete or edit your existing
-              videos.
+              We ask only to upload videos, read your channel name, and read your channel’s stats so you can
+              see how each Short performs. We can’t delete or edit your existing videos.
             </p>
           </div>
           {configured && allowance.atLimit ? (

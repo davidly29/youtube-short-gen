@@ -21,9 +21,11 @@ import type {
   Storage,
   TrendCollector,
   TTS,
+  YouTubeAnalyticsClient,
   YouTubeClient,
 } from "@shortloop/providers";
 
+import { analyticsHandler } from "./analytics";
 import { briefHandler, isBriefInput } from "./brief";
 import { addNotices, productionFailureListener, withProduction } from "./chain";
 import type { ResolveContext, ResolvedProviders } from "./providers";
@@ -64,6 +66,8 @@ export interface WorkerDeps {
   box?: SecretBox;
   /** YouTube client (GOOGLE_CLIENT_ID/SECRET); without it the publish stage reports it isn't set up. */
   youtube?: YouTubeClient;
+  /** YouTube Analytics (E10-01); without it the daily ingest only keeps feature rows (E10-02). */
+  youtubeAnalytics?: YouTubeAnalyticsClient;
   /** YouTube uploads per Pacific day before holding posts for the next window (default 100). */
   dailyUploadLimit?: number;
   /** Commercial-music check on user-supplied audio before publishing (E13-03); platform-level, not BYOK. */
@@ -212,6 +216,14 @@ export function createWorker(deps: WorkerDeps): JobService {
       });
       return (ctx) => (isBriefInput(ctx.job.input) ? brief(ctx) : collect(ctx));
     })(),
+    // Performance ingest (E10-01) + feature rows (E10-02): free, read-only, the channel's own grant.
+    analytics: analyticsHandler({
+      db: deps.db,
+      box: deps.box,
+      youtube: deps.youtube,
+      analytics: deps.youtubeAnalytics,
+      now: deps.now,
+    }),
   };
   const chained: Record<JobType, JobHandler> = {
     ...handlers,

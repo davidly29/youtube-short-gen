@@ -94,3 +94,16 @@ export {
   WebhookPayload,
   WebhookUrl,
 } from "./api";
+export {
+  HookType,
+  MetricDate,
+  Recommendation,
+  RecommendationField,
+  RecommendationOverride,
+  RecommendationReason,
+  ShortFeatures,
+  ShortMetrics,
+  ShortPerformance,
+  TargetSeconds,
+  VisualMix,
+} from "./analytics";
