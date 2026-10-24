@@ -69,3 +69,56 @@ export const ShortFeatures = z.object({
   postHour: z.number().int().min(0).max(23),
 });
 export type ShortFeatures = z.infer<typeof ShortFeatures>;
+
+/** Short lengths the script generator targets (E4-01). */
+export const TargetSeconds = z.union([z.literal(30), z.literal(45), z.literal(60)]);
+export type TargetSeconds = z.infer<typeof TargetSeconds>;
+
+/** The parts of a recommendation (E10-03), each with its own reason and each overridable. */
+export const RecommendationField = z.enum(["preferredFormats", "hookPatterns", "targetSeconds", "postHour"]);
+export type RecommendationField = z.infer<typeof RecommendationField>;
+
+/**
+ * Why one part of a recommendation is what it is, in words a creator can read. `source` says where the
+ * evidence came from: the channel's own Shorts, the shared prior (opted-in channels), a default (no data
+ * yet) or the user's own override. `shorts` counts the channel's own Shorts behind it; `lift` is the
+ * expected avg view % relative to the channel's average (1.2 = 20% better), when there is one.
+ */
+export const RecommendationReason = z.object({
+  field: RecommendationField,
+  source: z.enum(["channel", "shared_prior", "default", "user"]),
+  text: z.string().min(1).max(300),
+  shorts: z.number().int().nonnegative(),
+  lift: z.number().nonnegative().optional(),
+});
+export type RecommendationReason = z.infer<typeof RecommendationReason>;
+
+/**
+ * What the brief and script generator should favour for one channel (E10-03): formats and hook types in
+ * order of preference, a target length and a UTC posting hour, with one reason per field. A suggestion
+ * only: nothing is ever published without the user's approval.
+ */
+export const Recommendation = z.object({
+  channelId: Id,
+  preferredFormats: z.array(FormatSlug).min(1).max(4),
+  hookPatterns: z.array(HookType).min(1).max(5),
+  targetSeconds: TargetSeconds,
+  postHour: z.number().int().min(0).max(23),
+  why: z.array(RecommendationReason).length(4),
+  basedOn: z.object({
+    shorts: z.number().int().nonnegative(),
+    priorShorts: z.number().int().nonnegative(),
+    priorChannels: z.number().int().nonnegative(),
+  }),
+});
+export type Recommendation = z.infer<typeof Recommendation>;
+
+/** A user's choices that replace parts of a recommendation; `note` is shown as the reason. */
+export const RecommendationOverride = z.object({
+  preferredFormats: z.array(FormatSlug).min(1).max(4).optional(),
+  hookPatterns: z.array(HookType).min(1).max(5).optional(),
+  targetSeconds: TargetSeconds.optional(),
+  postHour: z.number().int().min(0).max(23).optional(),
+  note: z.string().min(1).max(200).optional(),
+});
+export type RecommendationOverride = z.infer<typeof RecommendationOverride>;

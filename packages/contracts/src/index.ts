@@ -70,4 +70,16 @@ export {
 export { Brief, BriefDate, BriefItem, BriefSource, FormatSlug, GroundingSource } from "./brief";
 export { AuditEvent, AuditEventType, TraceId } from "./audit";
 export { ChannelStyle, MIN_STYLE_VIDEOS, StyleProfile } from "./style";
-export { HookType, MetricDate, ShortFeatures, ShortMetrics, ShortPerformance, VisualMix } from "./analytics";
+export {
+  HookType,
+  MetricDate,
+  Recommendation,
+  RecommendationField,
+  RecommendationOverride,
+  RecommendationReason,
+  ShortFeatures,
+  ShortMetrics,
+  ShortPerformance,
+  TargetSeconds,
+  VisualMix,
+} from "./analytics";
