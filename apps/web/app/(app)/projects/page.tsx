@@ -1,12 +1,14 @@
 import { Clapperboard, Plus } from "lucide-react";
 import Link from "next/link";
 import { Badge, Card, STATUS_LABEL } from "../../../src/components/ui";
+import { PerformanceCard } from "../../../src/components/performance";
+import { performanceFor } from "../../../src/server/analytics";
 import { requireUser } from "../../../src/server/auth";
 import { listProjects } from "../../../src/server/projects";
 
 export default async function ProjectsPage() {
   const user = await requireUser();
-  const projects = await listProjects(user.id);
+  const [projects, performance] = await Promise.all([listProjects(user.id), performanceFor(user.id)]);
   return (
     <div>
       <div className="mb-6 flex items-end justify-between">
@@ -15,6 +17,9 @@ export default async function ProjectsPage() {
           <p className="mt-1 text-sm text-ink-soft">Every project, from idea to approved video.</p>
         </div>
       </div>
+      {(performance.shorts.length > 0 || performance.reconnect.length > 0) && (
+        <PerformanceCard shorts={performance.shorts} reconnect={performance.reconnect} />
+      )}
       {projects.length === 0 ? (
         <Card className="flex flex-col items-center py-16 text-center" data-testid="empty-projects">
           <Clapperboard className="mb-4 size-10 text-brand" aria-hidden />

@@ -23,6 +23,7 @@ import type {
   KeyUnavailable,
   Licence,
   PublishRequest,
+  ShortFeatures,
   StyleProfile,
 } from "@shortloop/contracts";
 
@@ -39,7 +40,15 @@ export const assetSource = pgEnum("asset_source", [
   "render",
 ]);
 export const platform = pgEnum("platform", ["youtube", "tiktok", "instagram"]);
-export const jobType = pgEnum("job_type", ["script", "voice", "visuals", "render", "publish", "trends"]);
+export const jobType = pgEnum("job_type", [
+  "script",
+  "voice",
+  "visuals",
+  "render",
+  "publish",
+  "trends",
+  "analytics",
+]);
 export const jobStatus = pgEnum("job_status", ["queued", "running", "succeeded", "failed", "cancelled"]);
 export const publishStatus = pgEnum("publish_status", [
   "queued",
@@ -682,4 +691,39 @@ export const styleProfiles = pgTable("style_profiles", {
   enabled: boolean("enabled").notNull().default(true),
   builtAt: timestamp("built_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   editedAt: timestamp("edited_at", { withTimezone: true, mode: "string" }),
+});
+
+/**
+ * Daily results per published Short from the platform's analytics API (E10-01). One row per (publish, day);
+ * the daily job upserts, so re-ingesting a day replaces its numbers.
+ */
+export const shortMetrics = pgTable(
+  "short_metrics",
+  {
+    publishId: text("publish_id")
+      .notNull()
+      .references(() => publishRecords.id, { onDelete: "cascade" }),
+    /** `YYYY-MM-DD`, as the analytics API reports the day. */
+    date: text("date").notNull(),
+    views: integer("views").notNull(),
+    avgViewPct: doublePrecision("avg_view_pct").notNull(),
+    likes: integer("likes").notNull(),
+    comments: integer("comments").notNull(),
+    subsGained: integer("subs_gained").notNull(),
+    swipeAwayRate: doublePrecision("swipe_away_rate"),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("short_metrics_publish_date").on(t.publishId, t.date)],
+);
+
+/** The choices behind each published Short (E10-02), one row per publish; recomputing replaces it. */
+export const shortFeatures = pgTable("short_features", {
+  publishId: text("publish_id")
+    .primaryKey()
+    .references(() => publishRecords.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => users.id),
+  features: jsonb("features").$type<ShortFeatures>().notNull(),
+  computedAt: timestamp("computed_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 });

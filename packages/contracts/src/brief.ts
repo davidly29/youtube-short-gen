@@ -37,6 +37,8 @@ export const BriefItem = z.object({
     .max(120)
     .refine((s) => words(s) <= 12, "hook must be at most 12 words"),
   format: FormatSlug,
+  /** The topic's velocity when the brief was built (E3-02); kept so features can use it (E10-02). */
+  velocity: z.number().positive().optional(),
   whyNow: z.string().min(1).max(200),
   sources: z.array(BriefSource).min(1).max(5),
 });

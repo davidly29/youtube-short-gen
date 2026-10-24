@@ -20,9 +20,12 @@ import {
   type BillingProvider,
   FakeFingerprint,
   FakeYouTube,
+  FakeYouTubeAnalytics,
+  HttpYouTubeAnalytics,
   fingerprintFromEnv,
   fingerprintRequired,
   youtubeFromEnv,
+  type YouTubeAnalyticsClient,
   type YouTubeClient,
   managedProvidersFromEnv,
   platformProvidersFromEnv,
@@ -41,6 +44,7 @@ import {
   createResolver,
   createWorker,
   requeueHeldPublishes,
+  startAnalyticsSchedule,
   startTrendSchedule,
   trendsConfigFromEnv,
   type ResolveContext,
@@ -72,6 +76,8 @@ export interface Runtime {
   prices: PriceMap;
   /** YouTube OAuth + upload (needs GOOGLE_CLIENT_ID/SECRET; a fake in fake mode). */
   youtube?: YouTubeClient;
+  /** Read-only YouTube Analytics for connected channels (E10-01); a fake in fake mode. */
+  youtubeAnalytics?: YouTubeAnalyticsClient;
   /** Fake adapters and offline key checks (e2e and local demos). */
   fake: boolean;
   /** The providers a user's own keys unlock, layered over the platform defaults. */
@@ -109,6 +115,15 @@ export function startAllInOneTrends(
   }
 }
 
+/**
+ * Daily performance ingest for the all-in-one runtime (E10-01). Queue mode does nothing: the worker service
+ * schedules. Returns a stop function.
+ */
+export function startAllInOneAnalytics(mode: Runtime["mode"], jobs: JobService, db: Db): () => void {
+  if (mode !== "all-in-one") return () => undefined;
+  return startAnalyticsSchedule(jobs, db);
+}
+
 async function build(): Promise<Runtime> {
   const handle = openDb(process.env.DATABASE_URL ?? defaultDatabaseUrl());
   await handle.migrate();
@@ -131,6 +146,11 @@ async function build(): Promise<Runtime> {
   // Monthly credits that weren't used expire at the end of their billing period (no rollover).
   setInterval(() => void expireCredits(handle.db).catch((e) => console.error(e)), 10 * 60_000).unref();
   const youtube = fake() ? new FakeYouTube() : youtubeFromEnv();
+  const youtubeAnalytics: YouTubeAnalyticsClient | undefined = fake()
+    ? new FakeYouTubeAnalytics()
+    : youtube
+      ? new HttpYouTubeAnalytics()
+      : undefined;
   // Each job and request follows its user's routing (ADR 0007): own keys, ShortLoop AI on paid plans (metered and
   // capped), and the free providers as the fallback for images and voices.
   const resolve = createResolver({
@@ -164,6 +184,7 @@ async function build(): Promise<Runtime> {
       resolveProviders: resolve,
       box,
       youtube,
+      youtubeAnalytics,
       dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
         ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
         : undefined,
@@ -182,6 +203,7 @@ async function build(): Promise<Runtime> {
   const mode: Runtime["mode"] = redisUrl ? "queue" : "all-in-one";
   // Once per process (runtime() memoises build()).
   startAllInOneTrends(mode, jobs, handle.db);
+  startAllInOneAnalytics(mode, jobs, handle.db);
   return {
     db: handle.db,
     storage,
@@ -195,6 +217,7 @@ async function build(): Promise<Runtime> {
     billing,
     prices,
     youtube,
+    youtubeAnalytics,
     fake: fake(),
     providersFor,
     resolve,

@@ -68,6 +68,8 @@ describe("migrations", () => {
       "provider_routing",
       "publish_records",
       "scripts",
+      "short_features",
+      "short_metrics",
       "style_profiles",
       "subscriptions",
       "timelines",
@@ -80,7 +82,7 @@ describe("migrations", () => {
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(30);
+    expect(await tableNames()).toHaveLength(32);
   });
 });
 

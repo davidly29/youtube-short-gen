@@ -10,7 +10,15 @@ export const TRACEPARENT_KEY = "_traceparent";
 export type JobType = Job["type"];
 type Status = Job["status"];
 
-export const JOB_TYPES: readonly JobType[] = ["script", "voice", "visuals", "render", "publish", "trends"];
+export const JOB_TYPES: readonly JobType[] = [
+  "script",
+  "voice",
+  "visuals",
+  "render",
+  "publish",
+  "trends",
+  "analytics",
+];
 export const MAX_ATTEMPTS = 3;
 
 /** Published on every status or progress change (Redis channel `job.updated` in production). */

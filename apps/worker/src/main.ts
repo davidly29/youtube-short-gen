@@ -15,8 +15,10 @@ import {
   secretBoxFromEnv,
   storageFromEnv,
   trendCollectorsFromEnv,
+  HttpYouTubeAnalytics,
   youtubeFromEnv,
 } from "@shortloop/providers";
+import { startAnalyticsSchedule } from "./analytics";
 import { startBriefSchedule } from "./brief";
 import { createResolver } from "./providers";
 import { requeueHeldPublishes } from "./publish";
@@ -33,6 +35,7 @@ const driver = redisUrl ? new BullQueueDriver(redisUrl, { render: 2 }) : new Mem
 const bus = redisUrl ? new RedisEventBus(redisUrl) : new MemoryEventBus();
 const platform = platformProvidersFromEnv();
 const box = secretBoxFromEnv();
+const youtube = youtubeFromEnv();
 const jobs = createWorker({
   db: handle.db,
   driver,
@@ -43,7 +46,9 @@ const jobs = createWorker({
   // capped), and the free providers as the fallback for images and voices.
   resolveProviders: createResolver({ db: handle.db, box, platform, managed: managedProvidersFromEnv() }),
   box,
-  youtube: youtubeFromEnv(),
+  youtube,
+  // Read-only stats for each connected channel's own Shorts (E10-01); same OAuth client as publishing.
+  youtubeAnalytics: youtube ? new HttpYouTubeAnalytics() : undefined,
   dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
     ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
     : undefined,
@@ -76,11 +81,15 @@ try {
 // Daily brief per channel with a niche (E3-03), from 05:00 UTC; idempotent per channel and day.
 const stopBriefs = startBriefSchedule(jobs, handle.db);
 
+// Daily performance ingest per connected channel (E10-01) and feature rows (E10-02); idempotent per day.
+const stopAnalytics = startAnalyticsSchedule(jobs, handle.db);
+
 console.log(`worker started (${redisUrl ? "BullMQ" : "in-memory"} queues)`);
 
 const shutdown = async () => {
   stopTrends();
   stopBriefs();
+  stopAnalytics();
   clearInterval(expiry);
   clearInterval(sweep);
   await driver.close();
