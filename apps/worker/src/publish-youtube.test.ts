@@ -17,6 +17,7 @@ import {
 } from "@shortloop/pipeline";
 import {
   cassette,
+  FakeFingerprint,
   FakeYouTube,
   HttpYouTube,
   LocalStorage,
@@ -32,7 +33,7 @@ import {
   countConnectedChannels,
   disconnectChannel,
 } from "./channels";
-import { requeueHeldPublishes } from "./publish";
+import { MUSIC_CHECK_UNAVAILABLE, requeueHeldPublishes } from "./publish";
 import { createWorker } from "./worker";
 
 // Spans from every test land here (E13-02); nothing is exported over the network.
@@ -145,7 +146,11 @@ const request = (over: Partial<PublishRequest> = {}): PublishRequest => ({
   ...over,
 });
 
-function worker(youtube: YouTubeClient, dailyUploadLimit?: number): JobService {
+function worker(
+  youtube: YouTubeClient,
+  dailyUploadLimit?: number,
+  music: { fingerprint?: FakeFingerprint; requireMusicCheck?: boolean } = {},
+): JobService {
   return createWorker({
     db: h.db,
     driver,
@@ -154,6 +159,7 @@ function worker(youtube: YouTubeClient, dailyUploadLimit?: number): JobService {
     box,
     youtube,
     dailyUploadLimit,
+    ...music,
   });
 }
 
@@ -353,6 +359,107 @@ describe("publish to YouTube (E8-02)", () => {
   });
 });
 
+describe("music and audio rights check (E13-03)", () => {
+  const AUDIO = "ast_audio";
+  /** Put one audio asset on the timeline's audio track. */
+  async function withAudio(source: "upload" | "library_music" | "ai_generated", title = "my-mix.mp3") {
+    const mp3 = join(dir, "a.mp3");
+    await writeFile(mp3, Buffer.alloc(512, 2));
+    await storage.putFile("uploads/a.mp3", mp3);
+    await h.db.insert(schema.assets).values({
+      id: AUDIO,
+      ownerId: SEED.userId,
+      kind: "audio",
+      source,
+      title,
+      licence:
+        source === "upload"
+          ? { type: "owned", attestedByUserAt: "2026-10-01T00:00:00.000Z" }
+          : source === "library_music"
+            ? { type: "library", provider: "shortloop-library" }
+            : { type: "ai_generated", provider: "edge" },
+      storageKey: "uploads/a.mp3",
+      durationMs: 4000,
+    });
+    await h.db
+      .update(schema.timelines)
+      .set({ audio: [{ assetId: AUDIO, startMs: 0, endMs: 4000, gainDb: 0 }] })
+      .where(eq(schema.timelines.id, "tl_1"));
+  }
+  const hit = (confidence: number) => ({
+    [AUDIO]: [{ title: "Chart Hit", owner: "Major Label Records", confidence }],
+  });
+
+  it("a match above 0.8 confidence in uploaded audio blocks publishing, with the reason", async () => {
+    await withAudio("upload");
+    const fingerprint = new FakeFingerprint(hit(0.91));
+    const yt = new FakeYouTube();
+    const { job, rec } = await publish(worker(yt, undefined, { fingerprint }));
+    expect(job?.status).toBe("failed");
+    expect(rec?.status).toBe("failed");
+    expect(rec?.error).toBe(
+      '"my-mix.mp3" contains "Chart Hit" by Major Label Records (91% match). Remove it or use a track from the music library.',
+    );
+    expect(yt.uploads).toHaveLength(0);
+    expect(fingerprint.calls.map((c) => c.assetId)).toEqual([AUDIO]);
+    const x = await explainPublish(h.db, `pub_${CH}`);
+    expect(x.checks).toEqual({ rights: "passed", variation: "pending", music: "failed" });
+    const audit = await h.db.query.auditEvents.findFirst({
+      where: eq(schema.auditEvents.type, "publish.failed"),
+    });
+    expect(audit?.data).toMatchObject({
+      musicMatches: [{ assetId: AUDIO, title: "Chart Hit", confidence: 0.91, blocking: true }],
+    });
+  });
+
+  it("a match at or below 0.8 does not block", async () => {
+    await withAudio("upload");
+    const yt = new FakeYouTube();
+    const { job } = await publish(worker(yt, undefined, { fingerprint: new FakeFingerprint(hit(0.8)) }));
+    expect(job?.status, job?.error).toBe("succeeded");
+    expect(yt.uploads).toHaveLength(1);
+    expect((await explainPublish(h.db, `pub_${CH}`)).checks.music).toBe("passed");
+  });
+
+  it("no match in uploaded audio publishes", async () => {
+    await withAudio("upload");
+    const fingerprint = new FakeFingerprint();
+    const { job } = await publish(worker(new FakeYouTube(), undefined, { fingerprint }));
+    expect(job?.status, job?.error).toBe("succeeded");
+    expect(fingerprint.calls).toHaveLength(1);
+  });
+
+  it("library music is never fingerprinted or blocked", async () => {
+    await withAudio("library_music", "Library track");
+    const fingerprint = new FakeFingerprint(hit(0.99));
+    const { job } = await publish(worker(new FakeYouTube(), undefined, { fingerprint }));
+    expect(job?.status, job?.error).toBe("succeeded");
+    expect(fingerprint.calls).toHaveLength(0);
+  });
+
+  it("AI voices are not sent for recognition", async () => {
+    await withAudio("ai_generated", "Voiceover");
+    const fingerprint = new FakeFingerprint(hit(0.99));
+    const { job } = await publish(worker(new FakeYouTube(), undefined, { fingerprint }));
+    expect(job?.status, job?.error).toBe("succeeded");
+    expect(fingerprint.calls).toHaveLength(0);
+  });
+
+  it("without a recognition service the check is recorded as skipped", async () => {
+    await withAudio("upload");
+    const { job } = await publish(worker(new FakeYouTube()));
+    expect(job?.status, job?.error).toBe("succeeded");
+    expect((await explainPublish(h.db, `pub_${CH}`)).checks.music).toBe("skipped");
+  });
+
+  it("FINGERPRINT_REQUIRED refuses uploaded audio when no recognition service is configured", async () => {
+    await withAudio("upload");
+    const { job, rec } = await publish(worker(new FakeYouTube(), undefined, { requireMusicCheck: true }));
+    expect(job?.status).toBe("failed");
+    expect(rec?.error).toBe(MUSIC_CHECK_UNAVAILABLE);
+  });
+});
+
 describe("explain a publish (E13-02)", () => {
   it("a publish is traced end to end by its job id and explained from the audit log", async () => {
     const jobs = worker(new FakeYouTube());
@@ -369,7 +476,7 @@ describe("explain a publish (E13-02)", () => {
     const x = await explainPublish(h.db, `pub_${CH}`);
     expect(x.jobId).toBe(job?.id);
     expect(x.traceId).toBe(web?.spanContext().traceId);
-    expect(x.checks).toEqual({ rights: "passed", variation: "passed" });
+    expect(x.checks).toEqual({ rights: "passed", variation: "passed", music: "passed" });
     expect(x.assets.map((a) => a.assetId).sort()).toEqual([SEED.assetIds[0], SEED.assetIds[1]].sort());
     expect(x.assets.every((a) => a.licence && a.attribution)).toBe(true);
   });
@@ -416,7 +523,7 @@ describe("explain a publish (E13-02)", () => {
     await driver.drain();
     const x = await explainPublish(h.db, `pub_${CH}`);
     expect(x.status).toBe("published");
-    expect(x.checks).toEqual({ rights: "passed", variation: "overridden" });
+    expect(x.checks).toEqual({ rights: "passed", variation: "overridden", music: "passed" });
     expect(x.events.map((e) => e.type)).toContain("variation_override");
   });
 });

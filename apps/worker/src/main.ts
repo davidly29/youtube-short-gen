@@ -8,6 +8,8 @@ import {
   RedisEventBus,
 } from "@shortloop/pipeline";
 import {
+  fingerprintFromEnv,
+  fingerprintRequired,
   managedProvidersFromEnv,
   platformProvidersFromEnv,
   secretBoxFromEnv,
@@ -50,6 +52,9 @@ const jobs = createWorker({
   dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
     ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
     : undefined,
+  // Commercial-music check on uploaded audio before publishing (E13-03): ACRCloud on the operator's keys.
+  fingerprint: fingerprintFromEnv(),
+  requireMusicCheck: fingerprintRequired(),
   // Trend radar (E3-01): free official APIs, platform-level, no user keys or credits.
   trendCollectors: trendCollectorsFromEnv(),
 });

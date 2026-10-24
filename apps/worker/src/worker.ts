@@ -13,6 +13,7 @@ import {
   type QueueDriver,
 } from "@shortloop/pipeline";
 import type {
+  Fingerprinter,
   ImageGen,
   LLM,
   SecretBox,
@@ -69,6 +70,10 @@ export interface WorkerDeps {
   youtubeAnalytics?: YouTubeAnalyticsClient;
   /** YouTube uploads per Pacific day before holding posts for the next window (default 100). */
   dailyUploadLimit?: number;
+  /** Commercial-music check on user-supplied audio before publishing (E13-03); platform-level, not BYOK. */
+  fingerprint?: Fingerprinter;
+  /** FINGERPRINT_REQUIRED=1: without `fingerprint`, refuse to publish user-supplied audio. */
+  requireMusicCheck?: boolean;
   /** Platform trend collectors (E3-01); without them the trends stage reports it isn't set up. */
   trendCollectors?: TrendCollector[];
   /** Clock for time-windowed stages (daily brief); defaults to the system clock. */
@@ -187,6 +192,8 @@ export function createWorker(deps: WorkerDeps): JobService {
             box: deps.box,
             youtube: deps.youtube,
             dailyLimit: deps.dailyUploadLimit,
+            fingerprint: deps.fingerprint,
+            requireMusicCheck: deps.requireMusicCheck,
           })
         : unavailable(
             "publish",
