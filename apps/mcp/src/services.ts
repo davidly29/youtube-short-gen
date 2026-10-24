@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type {
+  AccountOutput,
   ApproveOutput,
   Balance,
   CaptionStyle,
@@ -8,11 +9,18 @@ import type {
   EstimateInput,
   EstimateOutput,
   JobView,
+  ListShortsInput,
+  ListShortsOutput,
+  PerformanceOutput,
   PublishInput,
   PublishOutput,
+  RecommendationsInput,
+  RecommendationsOutput,
+  ShortDetail,
   SwapVisualInput,
   TrendsInput,
   TrendsOutput,
+  UpdateCaptionsInput,
   Voice,
 } from "./schemas";
 
@@ -32,6 +40,16 @@ export interface ShortLoopServices {
   approveShort(projectId: string): Promise<z.output<typeof ApproveOutput>>;
   publishShort(input: z.output<typeof PublishInput>): Promise<z.output<typeof PublishOutput>>;
   getCreditBalance(): Promise<z.output<typeof Balance>>;
+  /** Who is signed in: plan, credits, channels, and what to set up next (like VideoGen's get_me). */
+  getAccount(): Promise<z.output<typeof AccountOutput>>;
+  listShorts(input: z.output<typeof ListShortsInput>): Promise<z.output<typeof ListShortsOutput>>;
+  getShort(projectId: string): Promise<z.output<typeof ShortDetail>>;
+  /** Fix caption words and re-render (free). */
+  updateCaptions(input: z.output<typeof UpdateCaptionsInput>): Promise<JobView>;
+  getRecommendations(
+    input: z.output<typeof RecommendationsInput>,
+  ): Promise<z.output<typeof RecommendationsOutput>>;
+  getPerformance(): Promise<z.output<typeof PerformanceOutput>>;
 }
 
 /** A message safe to show the user (e.g. "Approve the Short before publishing."). */

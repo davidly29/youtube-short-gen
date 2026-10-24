@@ -1,25 +1,39 @@
 import "server-only";
-import { and, balance, eq, schema } from "@shortloop/db";
+import { DEFAULT_NICHES } from "@shortloop/contracts";
+import { and, balance, desc, eq, inArray, schema } from "@shortloop/db";
+import { recommend } from "@shortloop/pipeline";
+import { hasAnalyticsScope } from "@shortloop/providers";
 import { ToolUserError, type JobView, type ShortLoopServices } from "@shortloop/mcp";
 import { ZodError } from "zod";
 import { CAPTION_STYLES } from "../lib/captions";
 import { accessOf } from "./access";
-import { listChannels } from "./channels";
+import { performanceFor } from "./analytics";
+import { getTodayBrief } from "./brief";
+import { channelAllowance, listChannels } from "./channels";
 import { UserError } from "./errors";
 import {
   approve,
   capabilities,
   createProject,
+  listProjects,
   projectView,
   requestAiScript,
   saveScript,
   startProduction,
   swapVisual,
+  updateCaptions,
 } from "./projects";
 import { publishShort } from "./publishing";
 import { runtime } from "./runtime";
 
 const STAGES = ["script", "voice", "visuals", "render"];
+const IN_PROGRESS = new Set(["scripting", "producing"]);
+
+/** A link into the web app (the same origin that serves /api/mcp). */
+export function appUrl(path: string, env: Record<string, string | undefined> = process.env): string {
+  const base = (env.BETTER_AUTH_URL ?? env.APP_URL ?? "").replace(/\/$/, "");
+  return `${base}${path}`;
+}
 const DONE_PROJECT = new Set(["ready", "approved", "failed", "draft", "script_ready"]);
 const DONE_PUBLISH = new Set(["published", "scheduled", "scheduled_next_window", "failed"]);
 
@@ -66,13 +80,39 @@ async function projectJobView(userId: string, projectId: string, jobId: string):
 /** The ShortLoop MCP tools for one signed-in user, on the same service functions as the web app. */
 export function mcpServicesFor(userId: string): ShortLoopServices {
   const services: ShortLoopServices = {
-    async getTrends() {
-      return {
-        available: false,
-        message:
-          "The trend radar launches in Q2. For now, suggest topics yourself and pass one to create_short.",
-        trends: [],
-      };
+    async getTrends(input) {
+      const briefs = await getTodayBrief(userId, input.channel_id);
+      const wanted = input.niche?.trim().toLowerCase();
+      const matches = briefs.filter(
+        (b) => !wanted || b.niche?.id === wanted || b.niche?.name.toLowerCase().includes(wanted),
+      );
+      const trends = matches.flatMap((b) =>
+        (b.brief?.items ?? []).map((i) => ({
+          topic: i.sources[0]?.title ?? i.hook,
+          topic_id: i.topicId,
+          angle: i.angle,
+          hook: i.hook,
+          format: i.format,
+          why_now: i.whyNow,
+          sources: i.sources.map((src) => ({ title: src.title, url: src.url })),
+          channel_id: b.channel.id,
+          channel_title: b.channel.title,
+          already_made: Boolean(b.started[i.topicId]),
+        })),
+      );
+      const date = matches.map((b) => b.brief?.date).find(Boolean);
+      let message: string;
+      if (briefs.length === 0)
+        message =
+          "No channel is connected yet. The user connects YouTube under Channels in ShortLoop; until then, suggest topics yourself.";
+      else if (!briefs.some((b) => b.niche))
+        message = `Pick a niche for the channel on the Today page (${appUrl("/today")}) to get a daily brief. Niches: ${DEFAULT_NICHES.map((n) => n.name).join(", ")}.`;
+      else if (trends.length === 0)
+        message =
+          "Nothing new in the brief yet (briefs are built each morning). Suggest a topic yourself or try tomorrow.";
+      else
+        message = `${trends.length} idea${trends.length === 1 ? "" : "s"} from today's brief. Pass topic, angle and topic_id to create_short.`;
+      return { available: trends.length > 0, message, date, trends };
     },
 
     async createShort(input) {
@@ -88,6 +128,8 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
         angle: input.angle,
         targetSeconds: input.length_seconds,
         tone: input.tone,
+        topicId: input.topic_id,
+        styleChannelId: input.channel_voice_id,
       });
       const produce = { voiceId, captionStyle: input.caption_style, imageStyle: input.image_style };
       let jobId: string;
@@ -118,6 +160,7 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
         job_id: jobId,
         status: input.script ? "producing" : "scripting",
         next: "Call wait_for_job with this job_id.",
+        app_url: appUrl(`/projects/${projectId}`),
       };
     },
 
@@ -237,6 +280,217 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
       return {
         shorts: await balance(rt.db, userId, "short"),
         ai_video_credits: await balance(rt.db, userId, "ai_video_credit"),
+      };
+    },
+
+    async getAccount() {
+      const rt = await runtime();
+      const [access, allowance, channels, caps, user] = await Promise.all([
+        accessOf(userId),
+        channelAllowance(userId),
+        listChannels(userId),
+        capabilities(userId),
+        rt.db.query.users.findFirst({ where: eq(schema.users.id, userId) }),
+      ]);
+      const rows = channels.length
+        ? await rt.db
+            .select({
+              id: schema.channels.id,
+              nicheId: schema.channels.nicheId,
+              scopes: schema.channels.scopes,
+            })
+            .from(schema.channels)
+            .where(
+              inArray(
+                schema.channels.id,
+                channels.map((c) => c.id),
+              ),
+            )
+        : [];
+      const extra = new Map(rows.map((r) => [r.id, r]));
+      const shorts = await balance(rt.db, userId, "short");
+      const tips: string[] = [];
+      if (!caps.aiScripts)
+        tips.push(
+          "Add an AI key (Settings → API keys) so ShortLoop can write scripts, or pass create_short.script.",
+        );
+      if (channels.length === 0) tips.push("Connect a YouTube channel under Channels to publish.");
+      else if (!rows.some((r) => r.nicheId))
+        tips.push("Pick a niche on the Today page to get a daily trend brief.");
+      if (!access.unlimited && shorts < 1) tips.push("Out of Short credits: see Billing in the app.");
+      return {
+        name: user?.name ?? undefined,
+        plan: access.unlimited ? `${allowance.planName} (unlimited)` : allowance.planName,
+        unlimited: access.unlimited,
+        credits: {
+          shorts,
+          ai_video_credits: await balance(rt.db, userId, "ai_video_credit"),
+          plan: allowance.planName,
+        },
+        ai_scripts: caps.aiScripts,
+        channels: channels.map((c) => {
+          const e = extra.get(c.id);
+          const niche = DEFAULT_NICHES.find((n) => n.id === e?.nicheId);
+          return {
+            channel_id: c.id,
+            platform: c.platform,
+            title: c.title,
+            status: c.status,
+            publishable: c.publishable,
+            niche: niche?.name,
+            stats: c.platform === "youtube" && hasAnalyticsScope(e?.scopes),
+          };
+        }),
+        app_url: appUrl("/projects"),
+        tips,
+      };
+    },
+
+    async listShorts(input) {
+      const rt = await runtime();
+      const projects = await listProjects(userId);
+      const ids = projects.map((p) => p.id);
+      const pubs = ids.length
+        ? await rt.db
+            .select({
+              projectId: schema.publishRecords.projectId,
+              url: schema.publishRecords.url,
+              status: schema.publishRecords.status,
+            })
+            .from(schema.publishRecords)
+            .where(
+              and(eq(schema.publishRecords.ownerId, userId), inArray(schema.publishRecords.projectId, ids)),
+            )
+            .orderBy(desc(schema.publishRecords.createdAt))
+        : [];
+      const urls = new Map<string, string[]>();
+      for (const p of pubs) {
+        if (!p.projectId || !p.url || (p.status !== "published" && p.status !== "scheduled")) continue;
+        urls.set(p.projectId, [...(urls.get(p.projectId) ?? []), p.url]);
+      }
+      const keep = (status: string, id: string) => {
+        switch (input.status) {
+          case "in_progress":
+            return IN_PROGRESS.has(status);
+          case "published":
+            return (urls.get(id)?.length ?? 0) > 0;
+          case "any":
+            return true;
+          default:
+            return status === input.status;
+        }
+      };
+      return {
+        shorts: projects
+          .filter((p) => keep(p.status, p.id))
+          .slice(0, input.limit)
+          .map((p) => ({
+            project_id: p.id,
+            title: p.title,
+            status: p.status,
+            created_at: new Date(p.createdAt).toISOString(),
+            published_urls: urls.get(p.id) ?? [],
+            app_url: appUrl(`/projects/${p.id}`),
+          })),
+      };
+    },
+
+    async getShort(projectId) {
+      const v = await projectView(userId, projectId);
+      const perf = (await performanceFor(userId)).shorts.filter(
+        (s) => s.projectId === projectId && s.days > 0,
+      );
+      const stats = perf.length
+        ? {
+            views: perf.reduce((n, s) => n + s.views, 0),
+            avg_view_pct: perf[0]?.avgViewPct,
+            likes: perf.reduce((n, s) => n + s.likes, 0),
+            days: Math.max(...perf.map((s) => s.days)),
+          }
+        : undefined;
+      const rendered = v.project.status === "ready" || v.project.status === "approved";
+      return {
+        project_id: projectId,
+        title: v.script?.title ?? v.project.title,
+        topic: v.project.topic ?? undefined,
+        status: v.project.status,
+        error: v.project.error ?? undefined,
+        job_id: v.job?.id,
+        script: v.script
+          ? {
+              title: v.script.title,
+              hook: v.script.hook,
+              beats: v.script.beats.map((b, i) => ({ shot: i + 1, text: b.text, visual: b.visualQuery })),
+              cta: v.script.cta,
+            }
+          : undefined,
+        video_url: rendered ? v.videoUrl : undefined,
+        thumbnail_url: rendered ? v.thumbUrl : undefined,
+        captions: v.captions.length ? v.captions.map((c, index) => ({ index, text: c.text })) : undefined,
+        shots: v.beatsVisuals.length
+          ? v.beatsVisuals.map((b, i) => ({ shot: i + 1, source: b.source }))
+          : undefined,
+        publishable: v.publishable.ok,
+        problems: v.publishable.problems,
+        ai_label_required: v.aiDisclosureRequired,
+        publishes: v.publishes.map((p) => ({
+          channel_title: p.channelTitle,
+          status: p.status,
+          url: p.url ?? undefined,
+        })),
+        stats,
+        notices: v.project.notices,
+        app_url: appUrl(`/projects/${projectId}`),
+      };
+    },
+
+    async updateCaptions(input) {
+      const jobId = await updateCaptions(userId, input.project_id, input.edits);
+      return projectJobView(userId, input.project_id, jobId);
+    },
+
+    async getRecommendations(input) {
+      const rt = await runtime();
+      const channels = (await listChannels(userId)).filter((c) => c.platform === "youtube");
+      const channel = input.channel_id
+        ? channels.find((c) => c.id === input.channel_id)
+        : channels.length === 1
+          ? channels[0]
+          : undefined;
+      if (!channel)
+        throw new UserError(
+          channels.length === 0
+            ? "Connect a YouTube channel first: recommendations learn from its Shorts."
+            : `Pick a channel_id: ${channels.map((c) => `${c.id} (${c.title})`).join(", ")}`,
+        );
+      const rec = await recommend(rt.db, channel.id);
+      return {
+        channel_id: channel.id,
+        preferred_formats: rec.preferredFormats,
+        hook_types: rec.hookPatterns,
+        length_seconds: rec.targetSeconds,
+        post_hour_utc: rec.postHour,
+        why: rec.why.map((w) => ({ field: w.field, reason: w.text })),
+        based_on_shorts: rec.basedOn.shorts,
+      };
+    },
+
+    async getPerformance() {
+      const perf = await performanceFor(userId);
+      return {
+        shorts: perf.shorts.map((s) => ({
+          project_id: s.projectId,
+          title: s.title,
+          channel_title: s.channelTitle,
+          url: s.url,
+          views: s.views,
+          avg_view_pct: s.avgViewPct,
+          likes: s.likes,
+          comments: s.comments,
+          subs_gained: s.subsGained,
+          days: s.days,
+        })),
+        reconnect: perf.reconnect.map((c) => c.title),
       };
     },
   };

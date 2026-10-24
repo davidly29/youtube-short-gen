@@ -42,6 +42,23 @@ export const CreateShortInput = z.object({
   script: ScriptInput.optional().describe(
     "Your own script. Omit to have ShortLoop write one with the user's AI key (needs a key in Settings → API keys).",
   ),
+  topic_id: z
+    .string()
+    .regex(/^top_[A-Za-z0-9_]{1,60}$/)
+    .optional()
+    .describe("The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs)."),
+  channel_voice_id: z
+    .string()
+    .max(80)
+    .optional()
+    .describe("A channel id from list_channels whose learned voice the script should follow."),
+  wait_seconds: z
+    .number()
+    .int()
+    .min(0)
+    .max(50)
+    .default(0)
+    .describe("Wait up to this long for the Short to finish before returning (like wait_for_job)."),
 });
 
 export const JobView = z.object({
@@ -70,6 +87,8 @@ export const CreateShortOutput = z.object({
   job_id: z.string(),
   status: z.string(),
   next: z.string(),
+  app_url: z.string().optional().describe("Where the user can watch, edit and approve it in ShortLoop."),
+  job: JobView.optional().describe("The job's state after waiting, when wait_seconds > 0."),
 });
 
 export const Voice = z.object({
@@ -130,11 +149,27 @@ export const PublishOutput = z.object({
   next: z.string(),
 });
 
-export const TrendsInput = z.object({ niche: z.string().max(80).optional() });
+export const TrendsInput = z.object({
+  niche: z.string().max(80).optional().describe("Filter by niche name or id, e.g. 'history' or 'tech'."),
+  channel_id: z.string().max(80).optional().describe("Only this channel's brief (from list_channels)."),
+});
+export const TrendIdea = z.object({
+  topic: z.string().describe("Pass as create_short.topic."),
+  topic_id: z.string().describe("Pass as create_short.topic_id."),
+  angle: z.string().describe("Pass as create_short.angle."),
+  hook: z.string(),
+  format: z.string().describe("Format slug for get_workflow."),
+  why_now: z.string(),
+  sources: z.array(z.object({ title: z.string(), url: z.string() })),
+  channel_id: z.string(),
+  channel_title: z.string(),
+  already_made: z.boolean().describe("The user already started a Short from this idea."),
+});
 export const TrendsOutput = z.object({
   available: z.boolean(),
   message: z.string(),
-  trends: z.array(z.object({ topic: z.string(), why_now: z.string() })),
+  date: z.string().optional(),
+  trends: z.array(TrendIdea),
 });
 
 export const WorkflowPhase = z.enum(["start", "script", "visuals", "publish"]);
@@ -150,3 +185,121 @@ export const GetWorkflowOutput = z.object({
   phase: WorkflowPhase,
   markdown: z.string().describe("Step-by-step instructions for this phase."),
 });
+
+export const AppLink = z.string().describe("Link to this in the ShortLoop app.");
+
+export const ChannelView = z.object({
+  channel_id: z.string(),
+  platform: z.string(),
+  title: z.string(),
+  status: z.string().describe("connected or needs_reconnect"),
+  publishable: z.boolean().describe("false while the user is over their plan's channel limit"),
+  niche: z.string().optional().describe("The niche its daily brief covers"),
+  stats: z.boolean().describe("Whether ShortLoop can read this channel's YouTube stats"),
+});
+
+export const AccountOutput = z.object({
+  name: z.string().optional(),
+  plan: z.string(),
+  unlimited: z.boolean().describe("Admin or beta access: no credits needed"),
+  credits: Balance,
+  ai_scripts: z.boolean().describe("Whether create_short can write the script (the user has an AI key)"),
+  channels: z.array(ChannelView),
+  app_url: AppLink,
+  tips: z.array(z.string()).describe("What to set up next, if anything"),
+});
+
+export const ListShortsInput = z.object({
+  status: z
+    .enum(["any", "in_progress", "ready", "approved", "published", "failed"])
+    .default("any")
+    .describe("in_progress = being scripted or rendered"),
+  limit: z.number().int().min(1).max(50).default(10),
+});
+export const ShortSummary = z.object({
+  project_id: z.string(),
+  title: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+  published_urls: z.array(z.string()),
+  app_url: AppLink,
+});
+export const ListShortsOutput = z.object({ shorts: z.array(ShortSummary) });
+
+export const ShortDetail = z.object({
+  project_id: z.string(),
+  title: z.string(),
+  topic: z.string().optional(),
+  status: z.string(),
+  error: z.string().optional(),
+  job_id: z.string().optional().describe("The latest job, for wait_for_job"),
+  script: z
+    .object({
+      title: z.string(),
+      hook: z.string(),
+      beats: z.array(z.object({ shot: z.number(), text: z.string(), visual: z.string() })),
+      cta: z.string(),
+    })
+    .optional(),
+  video_url: z.string().optional().describe("Signed MP4 link (expires in an hour)"),
+  thumbnail_url: z.string().optional(),
+  captions: z
+    .array(z.object({ index: z.number(), text: z.string() }))
+    .optional()
+    .describe("Caption words with their index, for update_captions"),
+  shots: z
+    .array(z.object({ shot: z.number(), source: z.string() }))
+    .optional()
+    .describe("Where each shot's visual came from (stock, ai_generated, upload)"),
+  publishable: z.boolean(),
+  problems: z.array(z.string()),
+  ai_label_required: z.boolean(),
+  publishes: z.array(z.object({ channel_title: z.string(), status: z.string(), url: z.string().optional() })),
+  stats: z
+    .object({ views: z.number(), avg_view_pct: z.number().optional(), likes: z.number(), days: z.number() })
+    .optional(),
+  notices: z.array(z.string()),
+  app_url: AppLink,
+});
+
+export const UpdateCaptionsInput = z.object({
+  project_id: z.string(),
+  edits: z
+    .array(z.object({ index: z.number().int().min(0), text: z.string().min(1).max(40) }))
+    .min(1)
+    .max(100)
+    .describe("Caption word index (from get_short.captions) and the corrected word"),
+});
+
+export const RecommendationsInput = z.object({
+  channel_id: z.string().optional().describe("Defaults to the user's only connected channel."),
+});
+export const RecommendationsOutput = z.object({
+  channel_id: z.string(),
+  preferred_formats: z.array(z.string()),
+  hook_types: z.array(z.string()),
+  length_seconds: z.number(),
+  post_hour_utc: z.number(),
+  why: z.array(z.object({ field: z.string(), reason: z.string() })),
+  based_on_shorts: z.number(),
+});
+
+export const PerformanceOutput = z.object({
+  shorts: z.array(
+    z.object({
+      project_id: z.string().optional(),
+      title: z.string(),
+      channel_title: z.string(),
+      url: z.string().optional(),
+      views: z.number(),
+      avg_view_pct: z.number().optional(),
+      likes: z.number(),
+      comments: z.number(),
+      subs_gained: z.number(),
+      days: z.number(),
+    }),
+  ),
+  reconnect: z.array(z.string()).describe("Channels to reconnect in the app before their stats show"),
+});
+
+export const GuideOutput = z.object({ markdown: z.string() });
