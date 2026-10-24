@@ -8,6 +8,7 @@ import {
   MemoryEventBus,
   MemoryQueueDriver,
   RedisEventBus,
+  startWebhookDispatcher,
   type EventBus,
   type QueueDriver,
 } from "@shortloop/pipeline";
@@ -17,6 +18,7 @@ import {
   FakeImage,
   FakeTrendCollector,
   FakeTTS,
+  FakeWebhookSender,
   type BillingProvider,
   FakeFingerprint,
   FakeYouTube,
@@ -39,6 +41,7 @@ import {
   type TrendCollector,
   trendCollectorsFromEnv,
   type TTS,
+  webhookSenderFromEnv,
 } from "@shortloop/providers";
 import {
   createResolver,
@@ -203,6 +206,12 @@ async function build(): Promise<Runtime> {
   const mode: Runtime["mode"] = redisUrl ? "queue" : "all-in-one";
   // Once per process (runtime() memoises build()).
   startAllInOneTrends(mode, jobs, handle.db);
+  // Public API webhooks (E12-01): every web instance runs rounds; the delivery table's unique key dedupes them.
+  const svc = jobs;
+  startWebhookDispatcher(
+    { db: handle.db, box, sender: fake() ? new FakeWebhookSender() : webhookSenderFromEnv() },
+    { subscribe: (l) => svc.subscribe(l) },
+  );
   startAllInOneAnalytics(mode, jobs, handle.db);
   return {
     db: handle.db,
