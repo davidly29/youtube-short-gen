@@ -268,6 +268,30 @@ export async function startProduction(
   return job.id;
 }
 
+/** "Quick Short": a topic plus voice and look, then script -> voice -> visuals -> render with no stops. */
+export const QuickShort = NewProject.extend(ProductionSettings.omit({ libraryAssetIds: true }).shape);
+
+/**
+ * One click from topic to finished video (the same path as the MCP `create_short`): the user's AI key writes
+ * the script, then production starts on its own. The user still reviews and approves before publishing.
+ */
+export async function quickCreate(userId: string, input: z.infer<typeof QuickShort>) {
+  const data = QuickShort.parse(input);
+  const rt = await runtime();
+  if (!(await rt.providersFor(userId)).llm)
+    throw new UserError(
+      "Quick Shorts need your own AI key to write the script. Add one in Settings → API keys, or go step by step.",
+    );
+  if (!(await accessOf(userId)).unlimited && (await balance(rt.db, userId, "short")) < 1)
+    throw new UserError("You're out of Short credits.");
+  const caps = await capabilities(userId);
+  if (!caps.voices.some((v) => v.id === data.voiceId)) throw new UserError("Pick a voice from the list.");
+  const { voiceId, captionStyle, imageStyle, ...project } = data;
+  const projectId = await createProject(userId, project);
+  await requestAiScript(userId, projectId, { voiceId, captionStyle, imageStyle });
+  return projectId;
+}
+
 const STAGES = ["script", "voice", "visuals", "render"] as const;
 
 /** Everything the project page needs, with short-lived signed URLs for media. */

@@ -134,14 +134,16 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 Work the owner asked for after the business plan was written. These are product decisions, so the builder must respect
 them (see the ADRs).
 
-| Where | What                                                                                                                                                                       | Status          |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| #68   | **Bring your own keys** (ADR 0006): users add their own Gemini / Claude / OpenAI / ElevenLabs / Pexels / Pixabay / fal keys; the platform pays only for free defaults      | done            |
-| #73   | **Admin + beta access codes**: `ADMIN_EMAILS` admins and `SHORTLOOP_ACCESS_CODES` beta testers get unlimited Shorts (still own keys); Admin page                           | done            |
-| #86   | **E1-05 Provider routing, fallback and ShortLoop AI** (ADR 0007): per-job provider picker, free fallbacks, key health; AI on our keys for Creator/Pro with cost guardrails | in review (#87) |
-| #70   | E1-04 Enforce plan limits (channels per plan)                                                                                                                              | in review (#92) |
+| Where | What                                                                                                                                                                                                                                          | Status          |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| #68   | **Bring your own keys** (ADR 0006): users add their own Gemini / Claude / OpenAI / ElevenLabs / Pexels / Pixabay / fal keys; the platform pays only for free defaults                                                                         | done            |
+| #73   | **Admin + beta access codes**: `ADMIN_EMAILS` admins and `SHORTLOOP_ACCESS_CODES` beta testers get unlimited Shorts (still own keys); Admin page                                                                                              | done            |
+| #86   | **E1-05 Provider routing, fallback and ShortLoop AI** (ADR 0007): per-job provider picker, free fallbacks, key health; AI on our keys for Creator/Pro with cost guardrails                                                                    | in review (#87) |
+| #70   | E1-04 Enforce plan limits (channels per plan)                                                                                                                                                                                                 | in review (#92) |
+| #102  | **MCP-02 MCP connector v2 + Quick Short** (owner request 2026-10-24): MCP tools to mirror VideoGen/Everygen (account, list/get Shorts, real trend brief, captions, recommendations, stats, guide, prompt); one-click Make my Short on the web | in review (#PR) |
 
 Owner decisions recorded so far: PGlite in tests; Railway hosting; FFmpeg renderer (ADR 0004); server actions instead of
 tRPC (ADR 0005); own-key Shorts still use credits; free Edge voices OK as default; Creator + Pro only, no credit rollover;
 multi-ticket PRs welcome; per-job provider routing with free fallbacks, and ShortLoop AI for Creator/Pro capped at 25% of
-plan price per month, admins yes / beta codes no, premium images cost an AI-video credit (ADR 0007, 2026-10-19).
+plan price per month, admins yes / beta codes no, premium images cost an AI-video credit (ADR 0007, 2026-10-19);
+focus on the MCP connector for now, mirroring existing MCP video tools, and make creating a Short easier (2026-10-24).
