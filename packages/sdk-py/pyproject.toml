@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shortloop"
+version = "1.0.0"
+description = "Python SDK for the ShortLoop public API: make, approve and publish original YouTube Shorts."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+license = { text = "Proprietary" }
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+packages = ["shortloop"]
+
+[tool.setuptools.package-data]
+shortloop = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
