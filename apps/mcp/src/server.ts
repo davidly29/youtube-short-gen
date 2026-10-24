@@ -97,6 +97,7 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
         "Start making an original Short from a topic: script (written by the user's AI key, or the `script` you pass), voiceover, visuals, captions and render. Uses 1 credit. Returns a job_id for wait_for_job.",
       inputSchema: CreateShortInput,
       outputSchema: CreateShortOutput,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     (input) => r(() => services.createShort(input)),
   );
@@ -181,6 +182,7 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
         "Replace one shot of a rendered Short with a new AI image (optionally from your prompt) and re-render. Free. Returns a job to wait for.",
       inputSchema: SwapVisualInput,
       outputSchema: JobView,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     (input) => r(() => services.swapVisual(input)),
   );
@@ -193,6 +195,12 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
         "Mark a rendered Short as approved for publishing. Only after the user has watched it and said yes. Fails if any asset lacks a licence.",
       inputSchema: z.object({ project_id: z.string() }),
       outputSchema: ApproveOutput,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     ({ project_id }) => r(() => services.approveShort(project_id)),
   );

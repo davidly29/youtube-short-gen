@@ -10,3 +10,4 @@ export {
 } from "./server";
 export { ToolUserError, type ShortLoopServices } from "./services";
 export * from "./schemas";
+export { getWorkflow, listWorkflows } from "./playbooks";

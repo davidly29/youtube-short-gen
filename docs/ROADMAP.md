@@ -123,11 +123,11 @@ re-syncs everything. Last full sync: 2026-10-19. Tickets split during implementa
 
 ## S18–S23
 
-| Issue | Ticket | Title           | Blocked by | Status |
-| ----- | ------ | --------------- | ---------- | ------ |
-| #42   | E12-01 | Public REST API | #24        | open   |
-| #43   | E12-02 | SDKs and MCP GA | #42        | open   |
-| #44   | E12-03 | Integrations    | #42        | open   |
+| Issue | Ticket | Title           | Blocked by | Status           |
+| ----- | ------ | --------------- | ---------- | ---------------- |
+| #42   | E12-01 | Public REST API | #24        | in review (#101) |
+| #43   | E12-02 | SDKs and MCP GA | #42        | in review (#104) |
+| #44   | E12-03 | Integrations    | #42        | open             |
 
 ## Beyond the original plan
 
