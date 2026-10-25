@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 const TABS = [
   { href: "/settings/keys", label: "API keys" },
   { href: "/settings/voice", label: "Channel voice" },
+  { href: "/settings/developer", label: "Developer" },
 ];
 
 /** Settings sections. */

@@ -77,7 +77,8 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
 
     async createShort(input) {
       const rt = await runtime();
-      if ((await balance(rt.db, userId, "short")) < 1)
+      // Admins and access-code users are credit-exempt (they still use their own keys).
+      if (!(await accessOf(userId)).unlimited && (await balance(rt.db, userId, "short")) < 1)
         throw new UserError("You're out of Short credits. See Billing in the app.");
       const caps = await capabilities(userId);
       const voiceId = input.voice_id ?? caps.voices[0]?.id;
