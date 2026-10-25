@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.davidly29/shortloop",
+  "title": "ShortLoop",
+  "description": "Make original YouTube Shorts from a topic: script, voice, visuals, captions, then publish.",
+  "version": "1.0.0",
+  "websiteUrl": "https://web-staging-0f0b5.up.railway.app",
+  "repository": {
+    "url": "https://github.com/davidly29/youtube-short-gen",
+    "source": "github",
+    "subfolder": "apps/mcp"
+  },
+  "remotes": [{ "type": "streamable-http", "url": "https://web-staging-0f0b5.up.railway.app/api/mcp" }]
+}
