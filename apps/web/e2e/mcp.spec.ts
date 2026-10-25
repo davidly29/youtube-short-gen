@@ -4,6 +4,10 @@ import {
   UnauthorizedError,
   type OAuthClientProvider,
 } from "@modelcontextprotocol/client";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { addKey, signUp } from "./helpers";
 
@@ -103,7 +107,7 @@ test.describe("E9-01 MCP server", () => {
 
     const agent = await connectAgent(page);
     const { tools } = await agent.listTools();
-    expect(tools).toHaveLength(20);
+    expect(tools).toHaveLength(23);
     expect(tools.map((t) => t.name)).toEqual(
       expect.arrayContaining(["list_workflows", "get_workflow", "get_account", "get_short", "list_shorts"]),
     );
@@ -118,10 +122,50 @@ test.describe("E9-01 MCP server", () => {
     );
     expect(balance.shorts).toBe(5);
 
+    // MCP-03: the agent uploads the user's own image (attested), then uses it in the Short.
+    const png = join(mkdtempSync(join(tmpdir(), "mcp-up-")), "octopus reef.png");
+    execFileSync("ffmpeg", [
+      "-loglevel",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc2=size=540x960",
+      "-frames:v",
+      "1",
+      png,
+    ]);
+    const bytes = readFileSync(png);
+    const up = data<{ upload_url: string; upload_key: string; headers: Record<string, string> }>(
+      await agent.callTool({
+        name: "create_upload",
+        arguments: { filename: "octopus reef.png", size_bytes: bytes.length, i_own_this_media: true },
+      }),
+    );
+    expect(up.upload_url.startsWith(BASE)).toBe(true);
+    const put = await fetch(up.upload_url, { method: "PUT", headers: up.headers, body: bytes });
+    expect(put.status).toBe(200);
+    const asset = data<{ asset_id: string; kind: string; preview_url: string }>(
+      await agent.callTool({
+        name: "finish_upload",
+        arguments: { upload_key: up.upload_key, filename: "octopus reef.png", i_own_this_media: true },
+      }),
+    );
+    expect(asset).toMatchObject({ kind: "image", preview_url: expect.stringMatching(/^http/) });
+    const lib = data<{ assets: { asset_id: string }[] }>(
+      await agent.callTool({ name: "list_library", arguments: {} }),
+    );
+    expect(lib.assets.map((a) => a.asset_id)).toEqual([asset.asset_id]);
+
     const created = data<{ job_id: string; project_id: string }>(
       await agent.callTool({
         name: "create_short",
-        arguments: { topic: "why octopuses have three hearts", length_seconds: 30 },
+        arguments: {
+          topic: "why octopuses have three hearts",
+          length_seconds: 30,
+          library_asset_ids: [asset.asset_id],
+        },
       }),
     );
     let job = data<{ done: boolean; status: string; video_url?: string }>(
@@ -139,7 +183,7 @@ test.describe("E9-01 MCP server", () => {
       );
     }
     expect(job).toMatchObject({ done: true, status: "ready" });
-    expect(job.video_url).toBeTruthy();
+    expect(job.video_url).toMatch(/^http/); // absolute, so the agent (and the in-chat preview) can open it
 
     // MCP v2: the agent can inspect the Short (script, captions, app link) and find it again later.
     const detail = data<{ script?: { beats: unknown[] }; captions?: unknown[]; app_url: string }>(

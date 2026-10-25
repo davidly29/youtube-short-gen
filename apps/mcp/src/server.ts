@@ -12,8 +12,13 @@ import {
   CaptionStyle,
   CreateShortInput,
   CreateShortOutput,
+  CreateUploadInput,
+  CreateUploadOutput,
   EstimateInput,
   EstimateOutput,
+  FinishUploadInput,
+  LibraryItem,
+  ListLibraryOutput,
   GetWorkflowInput,
   GetWorkflowOutput,
   GuideOutput,
@@ -34,6 +39,14 @@ import {
   Voice,
 } from "./schemas";
 import { getWorkflow, listWorkflows } from "./playbooks";
+import {
+  MCP_APP_MIME,
+  PREVIEW_URI,
+  previewDomains,
+  previewHtml,
+  previewResourceMeta,
+  previewToolMeta,
+} from "./preview";
 import { ToolUserError, type ShortLoopServices } from "./services";
 
 export const MAX_WAIT_SECONDS = 50;
@@ -45,7 +58,8 @@ work for a channel.
 Make: create_short (topic, or a get_trends idea with its topic_id; wait_seconds up to 50) -> wait_for_job until done
 -> show the user video_url and app_url -> fix with swap_visual / update_captions -> approve_short (only after the user
 has watched it and said yes) -> publish_short -> wait_for_job. get_short shows everything about one Short;
-list_shorts finds earlier ones; get_performance shows views and retention.
+list_shorts finds earlier ones; get_performance shows views and retention. The user's own footage: create_upload ->
+PUT the bytes -> finish_upload, then pass asset ids as create_short.library_asset_ids (list_library shows them).
 For a format (trend explainer, myth vs fact, top-3 list, news in 60s), list_workflows then get_workflow per phase.
 Each Short uses one credit (estimate_cost). Never publish without the user's explicit OK. Call get_guide for more.`;
 
@@ -113,6 +127,8 @@ export interface BuildOptions {
   /** Poll interval for wait_for_job. */
   pollMs?: number;
   onError?: (e: unknown) => void;
+  /** Origins of signed media links (app origin, storage bucket), allowed in the preview's CSP. */
+  mediaOrigins?: string[];
 }
 
 /** One McpServer bound to one user's services. Tools only translate; all logic lives in the services. */
@@ -143,6 +159,7 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
       inputSchema: CreateShortInput,
       outputSchema: CreateShortOutput,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      _meta: previewToolMeta,
     },
     (input) =>
       r(async () => {
@@ -182,6 +199,7 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
       }),
       outputSchema: JobView,
       annotations: { readOnlyHint: true },
+      _meta: previewToolMeta,
     },
     ({ job_id, timeout_seconds }) => r(() => waitFor(services, job_id, timeout_seconds, pollMs)),
   );
@@ -334,6 +352,7 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
       inputSchema: z.object({ project_id: z.string() }),
       outputSchema: ShortDetail,
       annotations: { readOnlyHint: true },
+      _meta: previewToolMeta,
     },
     ({ project_id }) => r(() => services.getShort(project_id)),
   );
@@ -387,6 +406,61 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
     () => r(async () => ({ markdown: GUIDE })),
   );
 
+  server.registerTool(
+    "create_upload",
+    {
+      title: "Upload media",
+      description:
+        "Add the user's own video, image or audio (MP4, MOV, PNG, JPG, MP3, WAV, up to 2 GB) to their library. Returns a signed URL: PUT the file bytes there, then call finish_upload. Only for media the user owns or has rights to (i_own_this_media: true); never media from YouTube, TikTok or other people's posts.",
+      inputSchema: CreateUploadInput,
+      outputSchema: CreateUploadOutput,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    (input) => r(() => services.createUpload(input)),
+  );
+
+  server.registerTool(
+    "finish_upload",
+    {
+      title: "Finish an upload",
+      description:
+        "After the PUT to create_upload's URL succeeds: checks the file and records it in the user's library as their own media. Returns its asset_id for create_short.library_asset_ids.",
+      inputSchema: FinishUploadInput,
+      outputSchema: LibraryItem,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    (input) => r(() => services.finishUpload(input)),
+  );
+
+  server.registerTool(
+    "list_library",
+    {
+      title: "Media library",
+      description:
+        "The user's own uploads (newest first) with preview links. Pass asset ids to create_short.library_asset_ids to use them on matching beats.",
+      outputSchema: ListLibraryOutput,
+      annotations: { readOnlyHint: true },
+    },
+    () => r(() => services.listLibrary()),
+  );
+
+  const domains = previewDomains(opts.mediaOrigins ?? []);
+  server.registerResource(
+    "Short preview",
+    PREVIEW_URI,
+    {
+      title: "Short preview",
+      description: "Plays a Short and shows its progress inside the chat.",
+      mimeType: MCP_APP_MIME,
+      _meta: previewResourceMeta(domains),
+    },
+    (uri) => ({
+      contents: [
+        { uri: uri.href, mimeType: MCP_APP_MIME, text: previewHtml(), _meta: previewResourceMeta(domains) },
+      ],
+    }),
+  );
+
   server.registerPrompt(
     "make_a_short",
     {
@@ -435,6 +509,9 @@ export const TOOL_NAMES = [
   "get_recommendations",
   "get_performance",
   "get_guide",
+  "create_upload",
+  "finish_upload",
+  "list_library",
 ] as const;
 
 /**

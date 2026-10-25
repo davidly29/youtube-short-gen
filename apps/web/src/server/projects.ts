@@ -117,7 +117,12 @@ export async function requestAiScript(
   userId: string,
   projectId: string,
   /** Start production as soon as the script is written (MCP create_short: topic to video in one call). */
-  produce?: { voiceId: string; captionStyle: z.infer<typeof CaptionStyleId>; imageStyle?: string },
+  produce?: {
+    voiceId: string;
+    captionStyle: z.infer<typeof CaptionStyleId>;
+    imageStyle?: string;
+    libraryAssetIds?: string[];
+  },
 ) {
   const rt = await runtime();
   if (!(await rt.providersFor(userId)).llm)
@@ -137,7 +142,10 @@ export async function requestAiScript(
       tone: p.settings.tone ?? "curious",
       language: p.settings.language ?? "en",
       styleProfile,
-      produce,
+      produce: produce && {
+        ...produce,
+        libraryAssetIds: await ownedUploads(userId, produce.libraryAssetIds ?? []),
+      },
     },
     { idempotencyKey: `script:${projectId}:${Date.now()}`, ownerId: userId },
   );

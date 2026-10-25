@@ -10,6 +10,7 @@ import { accessOf } from "./access";
 import { performanceFor } from "./analytics";
 import { getTodayBrief } from "./brief";
 import { channelAllowance, listChannels } from "./channels";
+import { completeUpload, listLibrary, presignUpload } from "./library";
 import { UserError } from "./errors";
 import {
   approve,
@@ -33,6 +34,32 @@ const IN_PROGRESS = new Set(["scripting", "producing"]);
 export function appUrl(path: string, env: Record<string, string | undefined> = process.env): string {
   const base = (env.BETTER_AUTH_URL ?? env.APP_URL ?? "").replace(/\/$/, "");
   return `${base}${path}`;
+}
+
+/** Agents can't open app-relative links (local storage signs `/api/files/...`): make them absolute. */
+export const absolute = (url: string | undefined) => (url?.startsWith("/") ? appUrl(url) : url);
+
+/**
+ * Where signed media links can point, for the MCP preview's CSP: the app itself (local storage) and the
+ * S3/R2 endpoint with its bucket subdomains.
+ */
+export function mediaOrigins(env: Record<string, string | undefined> = process.env): string[] {
+  const out: string[] = [];
+  const app = env.BETTER_AUTH_URL ?? env.APP_URL;
+  try {
+    if (app) out.push(new URL(app).origin);
+  } catch {
+    // not a URL: skip
+  }
+  try {
+    if (env.S3_ENDPOINT) {
+      const u = new URL(env.S3_ENDPOINT);
+      out.push(u.origin, `${u.protocol}//*.${u.host}`);
+    }
+  } catch {
+    // not a URL: skip
+  }
+  return out;
 }
 const DONE_PROJECT = new Set(["ready", "approved", "failed", "draft", "script_ready"]);
 const DONE_PUBLISH = new Set(["published", "scheduled", "scheduled_next_window", "failed"]);
@@ -71,11 +98,21 @@ async function projectJobView(userId: string, projectId: string, jobId: string):
     progress: done ? 1 : Math.min(0.99, (stageIdx + (v.job?.progress ?? 0)) / STAGES.length),
     done,
     error: v.project.error ?? undefined,
-    video_url: status === "ready" || status === "approved" ? v.videoUrl : undefined,
+    video_url: status === "ready" || status === "approved" ? absolute(v.videoUrl) : undefined,
     publishable: v.publishable.ok,
     problems: v.publishable.ok ? undefined : v.publishable.problems,
   };
 }
+
+const libraryItem = (a: Awaited<ReturnType<typeof listLibrary>>[number]) => ({
+  asset_id: a.id,
+  kind: a.kind,
+  title: a.title,
+  duration_ms: a.durationMs ?? undefined,
+  width: a.width ?? undefined,
+  height: a.height ?? undefined,
+  preview_url: absolute(a.url) ?? a.url,
+});
 
 /** The ShortLoop MCP tools for one signed-in user, on the same service functions as the web app. */
 export function mcpServicesFor(userId: string): ShortLoopServices {
@@ -132,7 +169,12 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
         topicId: input.topic_id,
         styleChannelId: input.channel_voice_id,
       });
-      const produce = { voiceId, captionStyle: input.caption_style, imageStyle: input.image_style };
+      const produce = {
+        voiceId,
+        captionStyle: input.caption_style,
+        imageStyle: input.image_style,
+        libraryAssetIds: input.library_asset_ids,
+      };
       let jobId: string;
       if (input.script) {
         const saved = await saveScript(userId, projectId, {
@@ -425,8 +467,8 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
               cta: v.script.cta,
             }
           : undefined,
-        video_url: rendered ? v.videoUrl : undefined,
-        thumbnail_url: rendered ? v.thumbUrl : undefined,
+        video_url: rendered ? absolute(v.videoUrl) : undefined,
+        thumbnail_url: rendered ? absolute(v.thumbUrl) : undefined,
         captions: v.captions.length ? v.captions.map((c, index) => ({ index, text: c.text })) : undefined,
         shots: v.beatsVisuals.length
           ? v.beatsVisuals.map((b, i) => ({ shot: i + 1, source: b.source }))
@@ -474,6 +516,45 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
         why: rec.why.map((w) => ({ field: w.field, reason: w.text })),
         based_on_shorts: rec.basedOn.shorts,
       };
+    },
+
+    async createUpload(input) {
+      if (!input.i_own_this_media)
+        throw new UserError(
+          "Only upload media the user owns or has rights to. Ask them to confirm, then pass i_own_this_media: true.",
+        );
+      const p = await presignUpload(userId, {
+        filename: input.filename,
+        contentType: input.content_type,
+        size: input.size_bytes,
+        attested: true,
+      });
+      return {
+        upload_key: p.key,
+        upload_url: absolute(p.url) ?? p.url,
+        method: "PUT" as const,
+        headers: { "content-type": p.contentType },
+        next: "PUT the file bytes to upload_url with these headers, then call finish_upload with upload_key.",
+      };
+    },
+
+    async finishUpload(input) {
+      if (!input.i_own_this_media)
+        throw new UserError(
+          "Only media the user owns or has rights to can be added. Pass i_own_this_media: true.",
+        );
+      const id = await completeUpload(userId, {
+        key: input.upload_key,
+        filename: input.filename,
+        attested: true,
+      });
+      const item = (await listLibrary(userId)).find((a) => a.id === id);
+      if (!item) throw new UserError("The upload didn't arrive. Please try again.");
+      return libraryItem(item);
+    },
+
+    async listLibrary() {
+      return { assets: (await listLibrary(userId)).map(libraryItem) };
     },
 
     async getPerformance() {

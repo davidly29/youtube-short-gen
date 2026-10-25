@@ -6,8 +6,13 @@ import type {
   CaptionStyle,
   CreateShortInput,
   CreateShortOutput,
+  CreateUploadInput,
+  CreateUploadOutput,
   EstimateInput,
   EstimateOutput,
+  FinishUploadInput,
+  LibraryItem,
+  ListLibraryOutput,
   JobView,
   ListShortsInput,
   ListShortsOutput,
@@ -50,6 +55,10 @@ export interface ShortLoopServices {
     input: z.output<typeof RecommendationsInput>,
   ): Promise<z.output<typeof RecommendationsOutput>>;
   getPerformance(): Promise<z.output<typeof PerformanceOutput>>;
+  /** Uploads (like VideoGen's create_file_upload): a signed PUT URL, then finish to record the attested asset. */
+  createUpload(input: z.output<typeof CreateUploadInput>): Promise<z.output<typeof CreateUploadOutput>>;
+  finishUpload(input: z.output<typeof FinishUploadInput>): Promise<z.output<typeof LibraryItem>>;
+  listLibrary(): Promise<z.output<typeof ListLibraryOutput>>;
 }
 
 /** A message safe to show the user (e.g. "Approve the Short before publishing."). */

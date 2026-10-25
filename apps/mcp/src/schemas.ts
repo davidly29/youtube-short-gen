@@ -52,6 +52,13 @@ export const CreateShortInput = z.object({
     .max(80)
     .optional()
     .describe("A channel id from list_channels whose learned voice the script should follow."),
+  library_asset_ids: z
+    .array(z.string().max(100))
+    .max(30)
+    .optional()
+    .describe(
+      "The user's own uploads (from list_library) to use on the beats they match, before stock or AI.",
+    ),
   wait_seconds: z
     .number()
     .int()
@@ -303,3 +310,40 @@ export const PerformanceOutput = z.object({
 });
 
 export const GuideOutput = z.object({ markdown: z.string() });
+
+const OwnershipAttestation = z
+  .boolean()
+  .describe(
+    "true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it.",
+  );
+
+export const CreateUploadInput = z.object({
+  filename: z.string().min(1).max(200).describe("e.g. 'my-trip.mp4'. MP4, MOV, PNG, JPG, MP3 or WAV."),
+  content_type: z.string().max(100).default("").describe("e.g. video/mp4 (optional)"),
+  size_bytes: z.number().int().nonnegative().describe("File size; files over 2 GB are refused."),
+  i_own_this_media: OwnershipAttestation,
+});
+export const CreateUploadOutput = z.object({
+  upload_key: z.string(),
+  upload_url: z.string().describe("PUT the raw file bytes here (expires in an hour)."),
+  method: z.literal("PUT"),
+  headers: z.record(z.string(), z.string()),
+  next: z.string(),
+});
+
+export const FinishUploadInput = z.object({
+  upload_key: z.string().min(1).max(300),
+  filename: z.string().min(1).max(200),
+  i_own_this_media: OwnershipAttestation,
+});
+
+export const LibraryItem = z.object({
+  asset_id: z.string(),
+  kind: z.string().describe("video, image or audio"),
+  title: z.string(),
+  duration_ms: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  preview_url: z.string().describe("Signed link (expires in an hour)"),
+});
+export const ListLibraryOutput = z.object({ assets: z.array(LibraryItem) });

@@ -18,17 +18,24 @@ the app; tokens are bound to the `/api/mcp` resource.
 | Cursor                        | `~/.cursor/mcp.json`: `{"mcpServers":{"shortloop":{"url":"https://<app>/api/mcp"}}}`          |
 | VS Code                       | `.vscode/mcp.json`: `{"servers":{"shortloop":{"type":"http","url":"https://<app>/api/mcp"}}}` |
 
-**Tools** (20). Every tool calls the same service functions as the web app; publishing requires `approve_short` first.
+**Tools** (23). Every tool calls the same service functions as the web app; publishing requires `approve_short` first.
 
 | Step              | Tools                                                                                                                                                                          |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Account           | `get_account` (plan, credits, channels, what to set up next), `get_credit_balance`, `estimate_cost`                                                                            |
 | Ideas             | `get_trends` (today's brief per channel, with `topic_id`), `get_recommendations` (formats, hooks, length, post hour that work for a channel), `list_workflows`, `get_workflow` |
 | Make              | `create_short` (topic or a trend idea; `wait_seconds` ≤ 50 to wait in the same call), `get_job`, `wait_for_job` (≤ 50 s), `list_voices`, `list_caption_styles`                 |
+| Your own media    | `create_upload` (signed PUT URL; only media the user owns, `i_own_this_media: true`), `finish_upload`, `list_library`; then `create_short.library_asset_ids`                   |
 | Review and fix    | `get_short` (script, video/thumbnail links, caption words, visual sources, publishable, `app_url`), `list_shorts`, `swap_visual`, `update_captions`                            |
 | Publish and learn | `approve_short`, `publish_short`, `get_performance` (views, avg % viewed)                                                                                                      |
 | Help              | `get_guide` (step-by-step), prompt `make_a_short`                                                                                                                              |
 
-Read-only tools carry `readOnlyHint`, so clients can run them without asking each time.
+Read-only tools carry `readOnlyHint` and the others an explicit `destructiveHint`, so clients can tell reads from writes.
+
+**In-chat preview (MCP Apps).** `create_short`, `wait_for_job` and `get_short` point at the UI resource
+`ui://shortloop/short-preview.html`. Hosts that support MCP Apps (Claude, ChatGPT, VS Code, Goose) show a 9:16 player with
+the Short's status, a "Check again" button while it renders and "Open in ShortLoop"; other clients just get the text
+and structured result. The view loads the pinned MCP Apps View SDK from unpkg and may load media from the app's own
+origin and the `S3_ENDPOINT` bucket (its CSP `resourceDomains`). Media links in tool results are absolute.
 
 **Try it locally** with MCP Inspector: `npx @modelcontextprotocol/inspector`, URL `http://localhost:3000/api/mcp`.

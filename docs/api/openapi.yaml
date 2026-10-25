@@ -878,6 +878,183 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /uploads:
+    post:
+      operationId: createUpload
+      tags:
+        - Library
+      summary: Start an upload of the user's own media
+      description: |-
+        Only media the user owns or has rights to (`i_own_this_media: true`). PUT the bytes to `upload_url`, then POST /uploads/finish.
+
+        MCP tool: `create_upload`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUploadInputBody"
+      responses:
+        "201":
+          description: Start an upload of the user's own media
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateUploadOutput"
+        "400":
+          description: The request was invalid; `error.message` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /uploads/finish:
+    post:
+      operationId: finishUpload
+      tags:
+        - Library
+      summary: Record an uploaded file in the library
+      description: "MCP tool: `finish_upload`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinishUploadInputBody"
+      responses:
+        "201":
+          description: Record an uploaded file in the library
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        "400":
+          description: The request was invalid; `error.message` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /library:
+    get:
+      operationId: listLibrary
+      tags:
+        - Library
+      summary: The user's own uploads
+      description: "MCP tool: `list_library`."
+      responses:
+        "200":
+          description: The user's own uploads
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListLibraryOutput"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /account:
     get:
       operationId: getAccount
@@ -1738,6 +1915,13 @@ components:
           description: A channel id from list_channels whose learned voice the script should follow.
           type: string
           maxLength: 80
+        library_asset_ids:
+          description: The user's own uploads (from list_library) to use on the beats they match, before stock or AI.
+          maxItems: 30
+          type: array
+          items:
+            type: string
+            maxLength: 100
         wait_seconds:
           default: 0
           description: Wait up to this long for the Short to finish before returning (like wait_for_job).
@@ -2254,6 +2438,133 @@ components:
         - available
         - message
         - trends
+      additionalProperties: false
+    CreateUploadOutput:
+      type: object
+      properties:
+        upload_key:
+          type: string
+        upload_url:
+          type: string
+          description: PUT the raw file bytes here (expires in an hour).
+        method:
+          type: string
+          const: PUT
+        headers:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
+        next:
+          type: string
+      required:
+        - upload_key
+        - upload_url
+        - method
+        - headers
+        - next
+      additionalProperties: false
+    CreateUploadInputBody:
+      type: object
+      properties:
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: e.g. 'my-trip.mp4'. MP4, MOV, PNG, JPG, MP3 or WAV.
+        content_type:
+          default: ""
+          description: e.g. video/mp4 (optional)
+          type: string
+          maxLength: 100
+        size_bytes:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+          description: File size; files over 2 GB are refused.
+        i_own_this_media:
+          type: boolean
+          description: true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it.
+      required:
+        - filename
+        - size_bytes
+        - i_own_this_media
+    LibraryItem:
+      type: object
+      properties:
+        asset_id:
+          type: string
+        kind:
+          type: string
+          description: video, image or audio
+        title:
+          type: string
+        duration_ms:
+          type: number
+        width:
+          type: number
+        height:
+          type: number
+        preview_url:
+          type: string
+          description: Signed link (expires in an hour)
+      required:
+        - asset_id
+        - kind
+        - title
+        - preview_url
+      additionalProperties: false
+    FinishUploadInputBody:
+      type: object
+      properties:
+        upload_key:
+          type: string
+          minLength: 1
+          maxLength: 300
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 200
+        i_own_this_media:
+          type: boolean
+          description: true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it.
+      required:
+        - upload_key
+        - filename
+        - i_own_this_media
+    ListLibraryOutput:
+      type: object
+      properties:
+        assets:
+          type: array
+          items:
+            type: object
+            properties:
+              asset_id:
+                type: string
+              kind:
+                type: string
+                description: video, image or audio
+              title:
+                type: string
+              duration_ms:
+                type: number
+              width:
+                type: number
+              height:
+                type: number
+              preview_url:
+                type: string
+                description: Signed link (expires in an hour)
+            required:
+              - asset_id
+              - kind
+              - title
+              - preview_url
+            additionalProperties: false
+      required:
+        - assets
       additionalProperties: false
     AccountOutput:
       type: object

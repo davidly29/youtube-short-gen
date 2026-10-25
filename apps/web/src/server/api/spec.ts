@@ -16,8 +16,13 @@ import {
   CaptionStyle,
   CreateShortInput,
   CreateShortOutput,
+  CreateUploadInput,
+  CreateUploadOutput,
   EstimateInput,
   EstimateOutput,
+  FinishUploadInput,
+  LibraryItem,
+  ListLibraryOutput,
   GetWorkflowOutput,
   JobView,
   ListShortsInput,
@@ -53,7 +58,7 @@ export interface Operation {
   method: Method;
   /** OpenAPI path under `/api/v1`, with `{param}` placeholders. */
   path: string;
-  tag: "Shorts" | "Jobs" | "Account" | "Workflows" | "Webhooks" | "Meta";
+  tag: "Shorts" | "Jobs" | "Library" | "Account" | "Workflows" | "Webhooks" | "Meta";
   summary: string;
   description?: string;
   /** The MCP tool this endpoint mirrors. */
@@ -241,6 +246,37 @@ export const OPERATIONS: Operation[] = [
     summary: "Today's ideas from the account's daily trend brief",
     query: TrendsQuery,
     response: { status: 200, name: "TrendsOutput", schema: TrendsOutput },
+  },
+  {
+    id: "createUpload",
+    method: "post",
+    path: "/uploads",
+    tag: "Library",
+    mcpTool: "create_upload",
+    summary: "Start an upload of the user's own media",
+    description:
+      "Only media the user owns or has rights to (`i_own_this_media: true`). PUT the bytes to `upload_url`, then POST /uploads/finish.",
+    body: { name: "CreateUploadInput", schema: CreateUploadInput },
+    response: { status: 201, name: "CreateUploadOutput", schema: CreateUploadOutput },
+  },
+  {
+    id: "finishUpload",
+    method: "post",
+    path: "/uploads/finish",
+    tag: "Library",
+    mcpTool: "finish_upload",
+    summary: "Record an uploaded file in the library",
+    body: { name: "FinishUploadInput", schema: FinishUploadInput },
+    response: { status: 201, name: "LibraryItem", schema: LibraryItem },
+  },
+  {
+    id: "listLibrary",
+    method: "get",
+    path: "/library",
+    tag: "Library",
+    mcpTool: "list_library",
+    summary: "The user's own uploads",
+    response: { status: 200, name: "ListLibraryOutput", schema: ListLibraryOutput },
   },
   {
     id: "getAccount",
