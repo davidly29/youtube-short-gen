@@ -24,3 +24,4 @@ export * from "./trends";
 export * from "./fingerprint";
 export * from "./tiktok";
 export * from "./instagram";
+export * from "./webhooks";
