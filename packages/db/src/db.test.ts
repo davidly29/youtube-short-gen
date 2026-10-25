@@ -45,6 +45,7 @@ describe("migrations", () => {
   it("create every table on an empty database", async () => {
     expect(await tableNames()).toEqual([
       "ai_usage",
+      "api_rate_windows",
       "assets",
       "audit_events",
       "auth_accounts",
@@ -66,6 +67,7 @@ describe("migrations", () => {
       "jobs",
       "projects",
       "provider_routing",
+      "public_api_keys",
       "publish_records",
       "scripts",
       "short_features",
@@ -76,13 +78,15 @@ describe("migrations", () => {
       "trend_signals",
       "user_api_keys",
       "users",
+      "webhook_deliveries",
+      "webhooks",
     ]);
   });
 
   it("are idempotent", async () => {
     await h.migrate();
     await h.migrate();
-    expect(await tableNames()).toHaveLength(32);
+    expect(await tableNames()).toHaveLength(36);
   });
 });
 
