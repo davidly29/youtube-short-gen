@@ -300,6 +300,20 @@ describe("MCP v2: account, browsing, waiting, editing, guidance", () => {
       expect(ro(n), n).toBe(false);
   });
 
+  it("every tool carries a safety annotation (readOnlyHint or an explicit destructiveHint)", async () => {
+    const client = await connectInProcess(
+      createShortLoopMcpHandler(() => stubServices()),
+      auth,
+    );
+    const { tools } = await client.listTools();
+    const missing = tools
+      .filter(
+        (t) => t.annotations?.readOnlyHint !== true && typeof t.annotations?.destructiveHint !== "boolean",
+      )
+      .map((t) => t.name);
+    expect(missing).toEqual([]);
+  });
+
   it("serves a getting-started guide and a make_a_short prompt", async () => {
     const client = await connectInProcess(
       createShortLoopMcpHandler(() => stubServices()),
