@@ -2,7 +2,9 @@ import "server-only";
 import type { ApiErrorCode } from "@shortloop/contracts";
 import {
   CreateShortInput,
+  CreateUploadInput,
   EstimateInput,
+  FinishUploadInput,
   getWorkflow,
   listWorkflows,
   ToolUserError,
@@ -80,6 +82,15 @@ const HANDLERS: Record<string, (ctx: Ctx) => Promise<unknown>> = {
   async updateCaptions(ctx) {
     const body = CaptionsBody.parse(ctx.body);
     return ctx.services.updateCaptions({ ...body, project_id: param(ctx, "project_id") });
+  },
+  async createUpload(ctx) {
+    return ctx.services.createUpload(CreateUploadInput.parse(ctx.body));
+  },
+  async finishUpload(ctx) {
+    return ctx.services.finishUpload(FinishUploadInput.parse(ctx.body));
+  },
+  async listLibrary(ctx) {
+    return ctx.services.listLibrary();
   },
   async getAccount(ctx) {
     return ctx.services.getAccount();

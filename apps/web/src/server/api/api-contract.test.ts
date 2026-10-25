@@ -187,6 +187,27 @@ function fakeServices(userId: string): ShortLoopServices {
     async getPerformance() {
       return { shorts: [], reconnect: [] };
     },
+    async createUpload(input) {
+      if (!input.i_own_this_media) throw new ToolUserError("Confirm you own this media.");
+      return {
+        upload_key: "uploads/usr/a.mp4",
+        upload_url: "https://app.example.test/api/uploads/put/uploads/usr/a.mp4?sig=1",
+        method: "PUT" as const,
+        headers: { "content-type": "video/mp4" },
+        next: "PUT, then finish.",
+      };
+    },
+    async finishUpload(input) {
+      return {
+        asset_id: "ast_1",
+        kind: "video",
+        title: input.filename,
+        preview_url: "https://app.example.test/f.mp4",
+      };
+    },
+    async listLibrary() {
+      return { assets: [] };
+    },
   };
 }
 
@@ -247,6 +268,29 @@ describe("public REST API contract (E12-01)", () => {
       body: { edits: [{ index: 0, text: "Hi" }] },
     });
     expect(fixed.status).toBe(202);
+
+    const up = await api("POST", "/uploads", {
+      key,
+      body: { filename: "a.mp4", size_bytes: 10, i_own_this_media: true },
+    });
+    expect(up.status).toBe(201);
+    expect(
+      (
+        await api("POST", "/uploads", {
+          key,
+          body: { filename: "a.mp4", size_bytes: 10, i_own_this_media: false },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await api("POST", "/uploads/finish", {
+          key,
+          body: { upload_key: up.body.upload_key, filename: "a.mp4", i_own_this_media: true },
+        })
+      ).body.asset_id,
+    ).toBe("ast_1");
+    expect((await api("GET", "/library", { key })).body).toEqual({ assets: [] });
 
     // wait_seconds holds the create call until the Short is done (like the MCP tool).
     const waitedCreate = await api("POST", "/shorts", {

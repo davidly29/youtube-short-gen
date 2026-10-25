@@ -141,6 +141,7 @@ them (see the ADRs).
 | #86   | **E1-05 Provider routing, fallback and ShortLoop AI** (ADR 0007): per-job provider picker, free fallbacks, key health; AI on our keys for Creator/Pro with cost guardrails                                                                    | in review (#87)  |
 | #70   | E1-04 Enforce plan limits (channels per plan)                                                                                                                                                                                                 | in review (#92)  |
 | #102  | **MCP-02 MCP connector v2 + Quick Short** (owner request 2026-10-24): MCP tools to mirror VideoGen/Everygen (account, list/get Shorts, real trend brief, captions, recommendations, stats, guide, prompt); one-click Make my Short on the web | in review (#103) |
+| #105  | **MCP-03 Uploads over MCP + in-chat preview** (owner direction 2026-10-24): `create_upload`/`finish_upload`/`list_library`, MCP Apps player view, absolute media links, REST parity                                                           | in review (#PR)  |
 
 Owner decisions recorded so far: PGlite in tests; Railway hosting; FFmpeg renderer (ADR 0004); server actions instead of
 tRPC (ADR 0005); own-key Shorts still use credits; free Edge voices OK as default; Creator + Pro only, no credit rollover;
