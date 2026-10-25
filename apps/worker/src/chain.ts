@@ -20,6 +20,8 @@ export interface ProduceAfterScript {
   voiceId: string;
   captionStyle: CaptionStyleId;
   imageStyle?: string;
+  /** The user's own uploads to use on matching beats (already checked to be theirs). */
+  libraryAssetIds?: string[];
 }
 
 type ProjectStatus = (typeof schema.projects.$inferInsert)["status"];
@@ -95,6 +97,7 @@ export function withProduction(
               projectId,
               captionStyle: input.produce.captionStyle,
               imageStyle: input.produce.imageStyle,
+              libraryAssetIds: input.produce.libraryAssetIds,
             },
           },
           { idempotencyKey: `produce:${ctx.job.id}`, ownerId: ctx.ownerId },

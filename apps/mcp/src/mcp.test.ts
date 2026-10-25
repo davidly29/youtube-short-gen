@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { connectInProcess, data } from "./testing";
 import type { JobView } from "./schemas";
+import { EXT_APPS_URL, PREVIEW_URI } from "./preview";
 import { createShortLoopMcpHandler, TOOL_NAMES } from "./server";
 import { ToolUserError, type ShortLoopServices } from "./services";
 
@@ -8,6 +9,7 @@ import { ToolUserError, type ShortLoopServices } from "./services";
 function stubServices(): ShortLoopServices & { published: string[] } {
   const projects = new Map<string, { status: string; polls: number }>();
   const published: string[] = [];
+  const library: { asset_id: string; kind: string; title: string; preview_url: string }[] = [];
   const view = (id: string): JobView => {
     if (id.startsWith("pubjob_")) {
       return {
@@ -125,6 +127,27 @@ function stubServices(): ShortLoopServices & { published: string[] } {
       based_on_shorts: 0,
     }),
     getPerformance: async () => ({ shorts: [], reconnect: [] }),
+    createUpload: async (i) => {
+      if (!i.i_own_this_media) throw new ToolUserError("Confirm you own or have rights to this media.");
+      return {
+        upload_key: `uploads/usr_1/${i.filename}`,
+        upload_url: "https://app.test/api/uploads/put/x?sig=1",
+        method: "PUT" as const,
+        headers: { "content-type": "video/mp4" },
+        next: "PUT the bytes, then finish_upload.",
+      };
+    },
+    finishUpload: async (i) => {
+      const item = {
+        asset_id: "ast_up1",
+        kind: "video",
+        title: i.filename,
+        preview_url: "https://app.test/f.mp4",
+      };
+      library.push(item);
+      return item;
+    },
+    listLibrary: async () => ({ assets: library }),
   };
 }
 
@@ -137,7 +160,7 @@ describe("ShortLoop MCP server (E9-01)", () => {
       auth,
     );
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(20);
+    expect(tools).toHaveLength(23);
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES].sort());
     for (const t of tools) {
       expect(t.description?.length, t.name).toBeGreaterThan(20);
@@ -346,5 +369,69 @@ describe("MCP v2: account, browsing, waiting, editing, guidance", () => {
       "scheduled_at",
     ]);
     for (const name of mentioned) expect(tools.has(name) || params.has(name), name).toBe(true);
+  });
+});
+
+describe("MCP-03: uploads and the in-chat preview", () => {
+  it("upload: refuse without attestation; create -> finish -> list_library -> use in create_short", async () => {
+    const services = stubServices();
+    const client = await connectInProcess(
+      createShortLoopMcpHandler(() => services, { pollMs: 5 }),
+      auth,
+    );
+    const refused = (await client.callTool({
+      name: "create_upload",
+      arguments: { filename: "trip.mp4", size_bytes: 1000, i_own_this_media: false },
+    })) as { isError?: boolean; content: { text: string }[] };
+    expect(refused.isError).toBe(true);
+    const up = data<{ upload_url: string; method: string; upload_key: string }>(
+      await client.callTool({
+        name: "create_upload",
+        arguments: { filename: "trip.mp4", size_bytes: 1000, i_own_this_media: true },
+      }),
+    );
+    expect(up).toMatchObject({ method: "PUT", upload_url: expect.stringMatching(/^https:/) });
+    const asset = data<{ asset_id: string }>(
+      await client.callTool({
+        name: "finish_upload",
+        arguments: { upload_key: up.upload_key, filename: "trip.mp4", i_own_this_media: true },
+      }),
+    );
+    const lib = data<{ assets: { asset_id: string }[] }>(
+      await client.callTool({ name: "list_library", arguments: {} }),
+    );
+    expect(lib.assets.map((a) => a.asset_id)).toEqual([asset.asset_id]);
+    const made = data<{ project_id: string }>(
+      await client.callTool({
+        name: "create_short",
+        arguments: { topic: "my trip to the coast", library_asset_ids: [asset.asset_id] },
+      }),
+    );
+    expect(made.project_id).toBeTruthy();
+  });
+
+  it("get_short, create_short and wait_for_job render in the MCP Apps preview; the view is served with its CSP", async () => {
+    const client = await connectInProcess(
+      createShortLoopMcpHandler(() => stubServices(), { mediaOrigins: ["https://app.test"] }),
+      auth,
+    );
+    const { tools } = await client.listTools();
+    for (const name of ["get_short", "create_short", "wait_for_job"]) {
+      const meta = tools.find((t) => t.name === name)?._meta as { ui?: { resourceUri?: string } } | undefined;
+      expect(meta?.ui?.resourceUri, name).toBe(PREVIEW_URI);
+    }
+    const { resources } = await client.listResources();
+    expect(resources.map((r) => [r.uri, r.mimeType])).toEqual([[PREVIEW_URI, "text/html;profile=mcp-app"]]);
+    const read = await client.readResource({ uri: PREVIEW_URI });
+    const content = read.contents[0] as {
+      text: string;
+      mimeType: string;
+      _meta?: { ui?: { csp?: { resourceDomains?: string[] } } };
+    };
+    expect(content.mimeType).toBe("text/html;profile=mcp-app");
+    expect(content.text).toContain(EXT_APPS_URL);
+    expect(content.text).toContain("app.connect()");
+    expect(content.text).not.toContain("innerHTML");
+    expect(content._meta?.ui?.csp?.resourceDomains).toEqual(["https://unpkg.com", "https://app.test"]);
   });
 });

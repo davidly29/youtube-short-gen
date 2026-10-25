@@ -1,14 +1,14 @@
 import { requireMcpAuth } from "@better-auth/mcp";
 import { createShortLoopMcpHandler } from "@shortloop/mcp";
 import { auth, mcpResource } from "../../../src/server/auth";
-import { mcpServicesFor } from "../../../src/server/mcp-services";
+import { mcpServicesFor, mediaOrigins } from "../../../src/server/mcp-services";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // wait_for_job holds a request for up to 50 s
 
 const handler = createShortLoopMcpHandler(
   (authInfo) => mcpServicesFor(String((authInfo.extra as { userId?: unknown } | undefined)?.userId ?? "")),
-  { onError: (e) => console.error("[mcp]", e) },
+  { onError: (e) => console.error("[mcp]", e), mediaOrigins: mediaOrigins() },
 );
 
 /**
