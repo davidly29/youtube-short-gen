@@ -130,6 +130,63 @@ function fakeServices(userId: string): ShortLoopServices {
     async getCreditBalance() {
       return { shorts: userId === SEED.userId ? 5 : 0, ai_video_credits: 0 };
     },
+    async getAccount() {
+      return {
+        plan: "Free",
+        unlimited: false,
+        credits: { shorts: 5, ai_video_credits: 0 },
+        ai_scripts: true,
+        channels: [],
+        app_url: "https://app.example.test/projects",
+        tips: [],
+      };
+    },
+    async listShorts(input) {
+      return {
+        shorts: [
+          {
+            project_id: "prj_1",
+            title: "Octopus hearts",
+            status: "ready",
+            created_at: "2026-10-25T00:00:00.000Z",
+            published_urls: [],
+            app_url: "https://app.example.test/projects/prj_1",
+          },
+        ].slice(0, input.limit),
+      };
+    },
+    async getShort(projectId) {
+      if (projectId === "prj_missing") throw new ToolUserError("Project not found.");
+      return {
+        project_id: projectId,
+        title: "Octopus hearts",
+        status: "ready",
+        captions: [{ index: 0, text: "Octopuses" }],
+        publishable: true,
+        problems: [],
+        ai_label_required: false,
+        publishes: [],
+        notices: [],
+        app_url: `https://app.example.test/projects/${projectId}`,
+      };
+    },
+    async updateCaptions(input) {
+      return { ...job("job_captions", false), project_id: input.project_id };
+    },
+    async getRecommendations(input) {
+      return {
+        channel_id: input.channel_id ?? "ch_1",
+        preferred_formats: ["myth-vs-fact"],
+        hook_types: ["question"],
+        length_seconds: 45,
+        post_hour_utc: 17,
+        why: [{ field: "targetSeconds", reason: "Default until the channel has Shorts." }],
+        based_on_shorts: 0,
+      };
+    },
+    async getPerformance() {
+      return { shorts: [], reconnect: [] };
+    },
   };
 }
 
@@ -178,6 +235,25 @@ describe("public REST API contract (E12-01)", () => {
     expect((await api("POST", "/estimate", { key, body: { ai_video_seconds: 12 } })).body).toMatchObject({
       ai_video_credits: 3,
     });
+
+    expect((await api("GET", "/account", { key })).body.plan).toBe("Free");
+    expect((await api("GET", "/recommendations?channel_id=ch_9", { key })).body.channel_id).toBe("ch_9");
+    expect((await api("GET", "/performance", { key })).body).toEqual({ shorts: [], reconnect: [] });
+    expect((await api("GET", "/shorts?limit=5", { key })).body.shorts).toHaveLength(1);
+    expect((await api("GET", "/shorts/prj_1", { key })).body.app_url).toContain("prj_1");
+    expect((await api("GET", "/shorts/prj_missing", { key })).status).toBe(404);
+    const fixed = await api("POST", "/shorts/prj_1/captions", {
+      key,
+      body: { edits: [{ index: 0, text: "Hi" }] },
+    });
+    expect(fixed.status).toBe(202);
+
+    // wait_seconds holds the create call until the Short is done (like the MCP tool).
+    const waitedCreate = await api("POST", "/shorts", {
+      key,
+      body: { topic: "volcano islands", wait_seconds: 5 },
+    });
+    expect(waitedCreate.body).toMatchObject({ status: "ready", job: { done: true } });
 
     const created = await api("POST", "/shorts", { key, body: { topic: "why octopuses have three hearts" } });
     expect(created.status).toBe(202);

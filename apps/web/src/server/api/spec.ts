@@ -10,6 +10,7 @@ import {
   WebhookPayload,
 } from "@shortloop/contracts";
 import {
+  AccountOutput,
   ApproveOutput,
   Balance,
   CaptionStyle,
@@ -19,12 +20,20 @@ import {
   EstimateOutput,
   GetWorkflowOutput,
   JobView,
+  ListShortsInput,
+  ListShortsOutput,
   ListWorkflowsOutput,
   MAX_WAIT_SECONDS,
+  PerformanceOutput,
   PublishInput,
   PublishOutput,
+  RecommendationsInput,
+  RecommendationsOutput,
+  ShortDetail,
   SwapVisualInput,
+  TrendsInput,
   TrendsOutput,
+  UpdateCaptionsInput,
   Voice,
   WorkflowPhase,
 } from "@shortloop/mcp";
@@ -71,7 +80,13 @@ export const JobQuery = z.object({
     .describe(`Hold the request up to this many seconds (max ${MAX_WAIT_SECONDS}) until the job is done.`),
 });
 
-export const TrendsQuery = z.object({ niche: z.string().max(80).optional() });
+export const TrendsQuery = TrendsInput;
+/** Query strings arrive as text: coerce the limit. */
+export const ShortsQuery = ListShortsInput.extend({
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+export const RecommendationsQuery = RecommendationsInput;
+export const CaptionsBody = UpdateCaptionsInput.omit({ project_id: true });
 
 export const SwapBody = SwapVisualInput.omit({ project_id: true });
 export const PublishBody = PublishInput.omit({ project_id: true });
@@ -95,6 +110,41 @@ export const OPERATIONS: Operation[] = [
       "Start making an original Short from a topic: script (written with the user's AI key, or the `script` you pass), voiceover, visuals, captions and render. Uses 1 Short credit. Poll or wait on the returned job.",
     body: { name: "CreateShortInput", schema: CreateShortInput },
     response: { status: 202, name: "CreateShortOutput", schema: CreateShortOutput },
+  },
+  {
+    id: "listShorts",
+    method: "get",
+    path: "/shorts",
+    tag: "Shorts",
+    mcpTool: "list_shorts",
+    summary: "The account's Shorts, newest first",
+    query: ShortsQuery,
+    response: { status: 200, name: "ListShortsOutput", schema: ListShortsOutput },
+  },
+  {
+    id: "getShort",
+    method: "get",
+    path: "/shorts/{project_id}",
+    tag: "Shorts",
+    mcpTool: "get_short",
+    summary: "Everything about one Short",
+    description:
+      "Status, script with shots, signed video and thumbnail links, caption words (for /captions), visual sources, whether it can be published, publishes, stats and a link into the app.",
+    params: ProjectParam,
+    response: { status: 200, name: "ShortDetail", schema: ShortDetail },
+  },
+  {
+    id: "updateCaptions",
+    method: "post",
+    path: "/shorts/{project_id}/captions",
+    tag: "Shorts",
+    mcpTool: "update_captions",
+    summary: "Fix caption words and re-render",
+    description:
+      "Free. Indexes come from GET /shorts/{project_id}. Clears any approval. Returns a job to wait on.",
+    params: ProjectParam,
+    body: { name: "UpdateCaptionsInput", schema: CaptionsBody },
+    response: { status: 202, name: "JobView", schema: JobView },
   },
   {
     id: "approveShort",
@@ -188,9 +238,37 @@ export const OPERATIONS: Operation[] = [
     path: "/trends",
     tag: "Account",
     mcpTool: "get_trends",
-    summary: "Trending topics",
+    summary: "Today's ideas from the account's daily trend brief",
     query: TrendsQuery,
     response: { status: 200, name: "TrendsOutput", schema: TrendsOutput },
+  },
+  {
+    id: "getAccount",
+    method: "get",
+    path: "/account",
+    tag: "Account",
+    mcpTool: "get_account",
+    summary: "Plan, credits, channels and what to set up next",
+    response: { status: 200, name: "AccountOutput", schema: AccountOutput },
+  },
+  {
+    id: "getRecommendations",
+    method: "get",
+    path: "/recommendations",
+    tag: "Account",
+    mcpTool: "get_recommendations",
+    summary: "Formats, hooks, length and posting hour that work for a channel",
+    query: RecommendationsQuery,
+    response: { status: 200, name: "RecommendationsOutput", schema: RecommendationsOutput },
+  },
+  {
+    id: "getPerformance",
+    method: "get",
+    path: "/performance",
+    tag: "Account",
+    mcpTool: "get_performance",
+    summary: "Views and retention per published Short",
+    response: { status: 200, name: "PerformanceOutput", schema: PerformanceOutput },
   },
   {
     id: "listWorkflows",

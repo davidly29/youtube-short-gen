@@ -11,6 +11,7 @@ import {
   approve,
   createProject,
   projectView,
+  quickCreate,
   requestAiScript,
   saveScript,
   startProduction,
@@ -19,6 +20,7 @@ import {
   UserError,
   type NewProject,
   type ProductionSettings,
+  type QuickShort,
   type ScriptDraft,
 } from "../../src/server/projects";
 import { ProviderError, type StockResult } from "@shortloop/providers";
@@ -46,6 +48,12 @@ async function wrap<T>(fn: (userId: string) => Promise<T>): Promise<Result<T>> {
 
 export async function createProjectAction(input: z.infer<typeof NewProject>) {
   return wrap((uid) => createProject(uid, input));
+}
+
+export async function quickCreateAction(input: z.infer<typeof QuickShort>) {
+  const r = await wrap((uid) => quickCreate(uid, input));
+  revalidatePath("/", "layout");
+  return r;
 }
 
 export async function aiScriptAction(projectId: string) {

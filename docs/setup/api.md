@@ -26,9 +26,11 @@ The rate-limit counter lives in Postgres (`api_rate_windows`), so it holds acros
 KEY=sl_...   # Settings → Developer → Create key
 BASE=https://web-staging-0f0b5.up.railway.app/api/v1
 
-curl -s -H "Authorization: Bearer $KEY" $BASE/balance
+curl -s -H "Authorization: Bearer $KEY" $BASE/account
+curl -s -H "Authorization: Bearer $KEY" $BASE/trends
 curl -s -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
-  -d '{"topic":"why octopuses have three hearts","length_seconds":30}' $BASE/shorts
+  -d '{"topic":"why octopuses have three hearts","length_seconds":30,"wait_seconds":50}' $BASE/shorts
+curl -s -H "Authorization: Bearer $KEY" $BASE/shorts/<project_id>
 curl -s -H "Authorization: Bearer $KEY" "$BASE/jobs/<job_id>?wait=50"
 curl -s -X POST -H "Authorization: Bearer $KEY" $BASE/shorts/<project_id>/approve
 curl -s -H "Authorization: Bearer $KEY" -H 'content-type: application/json' -d '{}' $BASE/shorts/<project_id>/publish

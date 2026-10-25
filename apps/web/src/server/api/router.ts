@@ -16,10 +16,13 @@ import { authenticateApiKey } from "./keys";
 import { hitRateLimit, rateLimitFromEnv, type RateDecision } from "./rate-limit";
 import {
   buildOpenApi,
+  CaptionsBody,
   JobQuery,
   OPERATIONS,
   PublishBody,
   RATE_LIMIT_PER_MINUTE,
+  RecommendationsQuery,
+  ShortsQuery,
   SwapBody,
   TrendsQuery,
   type Operation,
@@ -44,10 +47,48 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const queryObject = (q: URLSearchParams) => Object.fromEntries(q.entries());
 const param = (ctx: Ctx, name: string) => ctx.params[name] ?? "";
 
+/** Poll a job until it's done or `seconds` pass. */
+async function waitFor(ctx: Ctx, jobId: string, seconds: number) {
+  const deadline = Date.now() + seconds * 1000;
+  let view = await ctx.services.getJob(jobId);
+  while (!view.done && Date.now() + ctx.pollMs < deadline) {
+    await sleep(ctx.pollMs);
+    view = await ctx.services.getJob(jobId);
+  }
+  return view;
+}
+
 const HANDLERS: Record<string, (ctx: Ctx) => Promise<unknown>> = {
   async createShort(ctx) {
-    const out = await ctx.services.createShort(CreateShortInput.parse(ctx.body));
-    return { ...out, next: jobNext(out.job_id) };
+    const input = CreateShortInput.parse(ctx.body);
+    const out = await ctx.services.createShort(input);
+    if (!input.wait_seconds) return { ...out, next: jobNext(out.job_id) };
+    const job = await waitFor(ctx, out.job_id, input.wait_seconds);
+    return {
+      ...out,
+      status: job.status,
+      job,
+      next: job.done ? "Done: show the video_url." : jobNext(out.job_id),
+    };
+  },
+  async listShorts(ctx) {
+    return ctx.services.listShorts(ShortsQuery.parse(queryObject(ctx.query)));
+  },
+  async getShort(ctx) {
+    return ctx.services.getShort(param(ctx, "project_id"));
+  },
+  async updateCaptions(ctx) {
+    const body = CaptionsBody.parse(ctx.body);
+    return ctx.services.updateCaptions({ ...body, project_id: param(ctx, "project_id") });
+  },
+  async getAccount(ctx) {
+    return ctx.services.getAccount();
+  },
+  async getRecommendations(ctx) {
+    return ctx.services.getRecommendations(RecommendationsQuery.parse(queryObject(ctx.query)));
+  },
+  async getPerformance(ctx) {
+    return ctx.services.getPerformance();
   },
   async approveShort(ctx) {
     return ctx.services.approveShort(param(ctx, "project_id"));
@@ -63,14 +104,7 @@ const HANDLERS: Record<string, (ctx: Ctx) => Promise<unknown>> = {
   },
   async getJob(ctx) {
     const { wait } = JobQuery.parse(queryObject(ctx.query));
-    const jobId = param(ctx, "job_id");
-    const deadline = Date.now() + wait * 1000;
-    let view = await ctx.services.getJob(jobId);
-    while (!view.done && Date.now() + ctx.pollMs < deadline) {
-      await sleep(ctx.pollMs);
-      view = await ctx.services.getJob(jobId);
-    }
-    return view;
+    return waitFor(ctx, param(ctx, "job_id"), wait);
   },
   async listVoices(ctx) {
     return { voices: await ctx.services.listVoices() };

@@ -95,6 +95,222 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listShorts
+      tags:
+        - Shorts
+      summary: The account's Shorts, newest first
+      description: "MCP tool: `list_shorts`."
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: in_progress = being scripted or rendered
+          schema:
+            default: any
+            type: string
+            enum:
+              - any
+              - in_progress
+              - ready
+              - approved
+              - published
+              - failed
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: The account's Shorts, newest first
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListShortsOutput"
+        "400":
+          description: The request was invalid; `error.message` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /shorts/{project_id}:
+    get:
+      operationId: getShort
+      tags:
+        - Shorts
+      summary: Everything about one Short
+      description: |-
+        Status, script with shots, signed video and thumbnail links, caption words (for /captions), visual sources, whether it can be published, publishes, stats and a link into the app.
+
+        MCP tool: `get_short`.
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: From POST /shorts.
+      responses:
+        "200":
+          description: Everything about one Short
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShortDetail"
+        "400":
+          description: The request was invalid; `error.message` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /shorts/{project_id}/captions:
+    post:
+      operationId: updateCaptions
+      tags:
+        - Shorts
+      summary: Fix caption words and re-render
+      description: |-
+        Free. Indexes come from GET /shorts/{project_id}. Clears any approval. Returns a job to wait on.
+
+        MCP tool: `update_captions`.
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: From POST /shorts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCaptionsInputBody"
+      responses:
+        "202":
+          description: Fix caption words and re-render
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobView"
+        "400":
+          description: The request was invalid; `error.message` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /shorts/{project_id}/approve:
     post:
       operationId: approveShort
@@ -596,18 +812,26 @@ paths:
       operationId: getTrends
       tags:
         - Account
-      summary: Trending topics
+      summary: Today's ideas from the account's daily trend brief
       description: "MCP tool: `get_trends`."
       parameters:
         - name: niche
           in: query
           required: false
+          description: Filter by niche name or id, e.g. 'history' or 'tech'.
+          schema:
+            type: string
+            maxLength: 80
+        - name: channel_id
+          in: query
+          required: false
+          description: Only this channel's brief (from list_channels).
           schema:
             type: string
             maxLength: 80
       responses:
         "200":
-          description: Trending topics
+          description: Today's ideas from the account's daily trend brief
           headers:
             X-RateLimit-Limit:
               description: Requests allowed per minute for this key.
@@ -631,6 +855,169 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /account:
+    get:
+      operationId: getAccount
+      tags:
+        - Account
+      summary: Plan, credits, channels and what to set up next
+      description: "MCP tool: `get_account`."
+      responses:
+        "200":
+          description: Plan, credits, channels and what to set up next
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountOutput"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /recommendations:
+    get:
+      operationId: getRecommendations
+      tags:
+        - Account
+      summary: Formats, hooks, length and posting hour that work for a channel
+      description: "MCP tool: `get_recommendations`."
+      parameters:
+        - name: channel_id
+          in: query
+          required: false
+          description: Defaults to the user's only connected channel.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Formats, hooks, length and posting hour that work for a channel
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationsOutput"
+        "400":
+          description: The request was invalid; `error.message` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, unknown or revoked API key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: No such resource for this account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Rate limit hit. Retry after `Retry-After` seconds.
+          headers:
+            Retry-After:
+              description: Seconds to wait.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /performance:
+    get:
+      operationId: getPerformance
+      tags:
+        - Account
+      summary: Views and retention per published Short
+      description: "MCP tool: `get_performance`."
+      responses:
+        "200":
+          description: Views and retention per published Short
+          headers:
+            X-RateLimit-Limit:
+              description: Requests allowed per minute for this key.
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests left in this window.
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Unix time (seconds) the window resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceOutput"
         "401":
           description: Missing, unknown or revoked API key.
           content:
@@ -1205,6 +1592,58 @@ components:
           type: string
         next:
           type: string
+        app_url:
+          description: Where the user can watch, edit and approve it in ShortLoop.
+          type: string
+        job:
+          description: The job's state after waiting, when wait_seconds > 0.
+          type: object
+          properties:
+            job_id:
+              type: string
+            kind:
+              type: string
+              enum:
+                - production
+                - publish
+            project_id:
+              type: string
+            status:
+              type: string
+              description: "production: scripting, producing, ready, approved, failed. publish: queued, uploading, published, scheduled, scheduled_next_window, failed."
+            stage:
+              description: script, voice, visuals or render while producing
+              type: string
+            progress:
+              type: number
+              minimum: 0
+              maximum: 1
+            done:
+              type: boolean
+              description: true when nothing more will happen without another tool call
+            error:
+              type: string
+            video_url:
+              description: Signed link to the rendered MP4 (expires in an hour).
+              type: string
+            publishable:
+              type: boolean
+            problems:
+              type: array
+              items:
+                type: string
+            url:
+              description: The YouTube URL once published or scheduled.
+              type: string
+            retry_at:
+              type: string
+          required:
+            - job_id
+            - kind
+            - status
+            - progress
+            - done
+          additionalProperties: false
       required:
         - project_id
         - job_id
@@ -1291,19 +1730,192 @@ components:
           required:
             - title
             - beats
+        topic_id:
+          description: The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs).
+          type: string
+          pattern: ^top_[A-Za-z0-9_]{1,60}$
+        channel_voice_id:
+          description: A channel id from list_channels whose learned voice the script should follow.
+          type: string
+          maxLength: 80
+        wait_seconds:
+          default: 0
+          description: Wait up to this long for the Short to finish before returning (like wait_for_job).
+          type: integer
+          minimum: 0
+          maximum: 50
       required:
         - topic
-    ApproveOutput:
+    ListShortsOutput:
+      type: object
+      properties:
+        shorts:
+          type: array
+          items:
+            type: object
+            properties:
+              project_id:
+                type: string
+              title:
+                type: string
+              status:
+                type: string
+              created_at:
+                type: string
+              published_urls:
+                type: array
+                items:
+                  type: string
+              app_url:
+                type: string
+                description: Link to this in the ShortLoop app.
+            required:
+              - project_id
+              - title
+              - status
+              - created_at
+              - published_urls
+              - app_url
+            additionalProperties: false
+      required:
+        - shorts
+      additionalProperties: false
+    ShortDetail:
       type: object
       properties:
         project_id:
           type: string
-        approved:
+        title:
+          type: string
+        topic:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+        job_id:
+          description: The latest job, for wait_for_job
+          type: string
+        script:
+          type: object
+          properties:
+            title:
+              type: string
+            hook:
+              type: string
+            beats:
+              type: array
+              items:
+                type: object
+                properties:
+                  shot:
+                    type: number
+                  text:
+                    type: string
+                  visual:
+                    type: string
+                required:
+                  - shot
+                  - text
+                  - visual
+                additionalProperties: false
+            cta:
+              type: string
+          required:
+            - title
+            - hook
+            - beats
+            - cta
+          additionalProperties: false
+        video_url:
+          description: Signed MP4 link (expires in an hour)
+          type: string
+        thumbnail_url:
+          type: string
+        captions:
+          description: Caption words with their index, for update_captions
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: number
+              text:
+                type: string
+            required:
+              - index
+              - text
+            additionalProperties: false
+        shots:
+          description: Where each shot's visual came from (stock, ai_generated, upload)
+          type: array
+          items:
+            type: object
+            properties:
+              shot:
+                type: number
+              source:
+                type: string
+            required:
+              - shot
+              - source
+            additionalProperties: false
+        publishable:
           type: boolean
-          const: true
+        problems:
+          type: array
+          items:
+            type: string
+        ai_label_required:
+          type: boolean
+        publishes:
+          type: array
+          items:
+            type: object
+            properties:
+              channel_title:
+                type: string
+              status:
+                type: string
+              url:
+                type: string
+            required:
+              - channel_title
+              - status
+            additionalProperties: false
+        stats:
+          type: object
+          properties:
+            views:
+              type: number
+            avg_view_pct:
+              type: number
+            likes:
+              type: number
+            days:
+              type: number
+          required:
+            - views
+            - likes
+            - days
+          additionalProperties: false
+        notices:
+          type: array
+          items:
+            type: string
+        app_url:
+          type: string
+          description: Link to this in the ShortLoop app.
       required:
         - project_id
-        - approved
+        - title
+        - status
+        - publishable
+        - problems
+        - ai_label_required
+        - publishes
+        - notices
+        - app_url
       additionalProperties: false
     JobView:
       type: object
@@ -1352,6 +1964,42 @@ components:
         - status
         - progress
         - done
+      additionalProperties: false
+    UpdateCaptionsInputBody:
+      type: object
+      properties:
+        edits:
+          minItems: 1
+          maxItems: 100
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+                minimum: 0
+                maximum: 9007199254740991
+              text:
+                type: string
+                minLength: 1
+                maxLength: 40
+            required:
+              - index
+              - text
+          description: Caption word index (from get_short.captions) and the corrected word
+      required:
+        - edits
+    ApproveOutput:
+      type: object
+      properties:
+        project_id:
+          type: string
+        approved:
+          type: boolean
+          const: true
+      required:
+        - project_id
+        - approved
       additionalProperties: false
     SwapVisualInputBody:
       type: object
@@ -1547,6 +2195,8 @@ components:
           type: boolean
         message:
           type: string
+        date:
+          type: string
         trends:
           type: array
           items:
@@ -1554,16 +2204,217 @@ components:
             properties:
               topic:
                 type: string
+                description: Pass as create_short.topic.
+              topic_id:
+                type: string
+                description: Pass as create_short.topic_id.
+              angle:
+                type: string
+                description: Pass as create_short.angle.
+              hook:
+                type: string
+              format:
+                type: string
+                description: Format slug for get_workflow.
               why_now:
                 type: string
+              sources:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    url:
+                      type: string
+                  required:
+                    - title
+                    - url
+                  additionalProperties: false
+              channel_id:
+                type: string
+              channel_title:
+                type: string
+              already_made:
+                type: boolean
+                description: The user already started a Short from this idea.
             required:
               - topic
+              - topic_id
+              - angle
+              - hook
+              - format
               - why_now
+              - sources
+              - channel_id
+              - channel_title
+              - already_made
             additionalProperties: false
       required:
         - available
         - message
         - trends
+      additionalProperties: false
+    AccountOutput:
+      type: object
+      properties:
+        name:
+          type: string
+        plan:
+          type: string
+        unlimited:
+          type: boolean
+          description: "Admin or beta access: no credits needed"
+        credits:
+          type: object
+          properties:
+            shorts:
+              type: number
+            ai_video_credits:
+              type: number
+            plan:
+              type: string
+          required:
+            - shorts
+            - ai_video_credits
+          additionalProperties: false
+        ai_scripts:
+          type: boolean
+          description: Whether create_short can write the script (the user has an AI key)
+        channels:
+          type: array
+          items:
+            type: object
+            properties:
+              channel_id:
+                type: string
+              platform:
+                type: string
+              title:
+                type: string
+              status:
+                type: string
+                description: connected or needs_reconnect
+              publishable:
+                type: boolean
+                description: false while the user is over their plan's channel limit
+              niche:
+                description: The niche its daily brief covers
+                type: string
+              stats:
+                type: boolean
+                description: Whether ShortLoop can read this channel's YouTube stats
+            required:
+              - channel_id
+              - platform
+              - title
+              - status
+              - publishable
+              - stats
+            additionalProperties: false
+        app_url:
+          type: string
+          description: Link to this in the ShortLoop app.
+        tips:
+          type: array
+          items:
+            type: string
+          description: What to set up next, if anything
+      required:
+        - plan
+        - unlimited
+        - credits
+        - ai_scripts
+        - channels
+        - app_url
+        - tips
+      additionalProperties: false
+    RecommendationsOutput:
+      type: object
+      properties:
+        channel_id:
+          type: string
+        preferred_formats:
+          type: array
+          items:
+            type: string
+        hook_types:
+          type: array
+          items:
+            type: string
+        length_seconds:
+          type: number
+        post_hour_utc:
+          type: number
+        why:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              reason:
+                type: string
+            required:
+              - field
+              - reason
+            additionalProperties: false
+        based_on_shorts:
+          type: number
+      required:
+        - channel_id
+        - preferred_formats
+        - hook_types
+        - length_seconds
+        - post_hour_utc
+        - why
+        - based_on_shorts
+      additionalProperties: false
+    PerformanceOutput:
+      type: object
+      properties:
+        shorts:
+          type: array
+          items:
+            type: object
+            properties:
+              project_id:
+                type: string
+              title:
+                type: string
+              channel_title:
+                type: string
+              url:
+                type: string
+              views:
+                type: number
+              avg_view_pct:
+                type: number
+              likes:
+                type: number
+              comments:
+                type: number
+              subs_gained:
+                type: number
+              days:
+                type: number
+            required:
+              - title
+              - channel_title
+              - views
+              - likes
+              - comments
+              - subs_gained
+              - days
+            additionalProperties: false
+        reconnect:
+          type: array
+          items:
+            type: string
+          description: Channels to reconnect in the app before their stats show
+      required:
+        - shorts
+        - reconnect
       additionalProperties: false
     ListWorkflowsOutput:
       type: object
