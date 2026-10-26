@@ -1,12 +1,18 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq, hourBucket, openDb, schema, type DbHandle } from "@shortloop/db";
+import { eq, hourBucket, openDb, schema, seed, SEED, type DbHandle } from "@shortloop/db";
 import { MemoryEventBus, MemoryQueueDriver } from "@shortloop/pipeline";
 import { FakeTrendCollector, LocalStorage } from "@shortloop/providers";
-import { createWorker, trendsJobKey } from "@shortloop/worker";
+import { briefJobKey, createWorker, trendsJobKey } from "@shortloop/worker";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { allInOneTrendCollectors, runtime, startAllInOneTrends, type Runtime } from "./runtime";
+import {
+  allInOneTrendCollectors,
+  runtime,
+  startAllInOneBriefs,
+  startAllInOneTrends,
+  type Runtime,
+} from "./runtime";
 
 vi.mock("server-only", () => ({}));
 
@@ -117,5 +123,79 @@ describe("all-in-one runtime trend collection (E3-01e)", () => {
       await new Promise((r) => setTimeout(r, 50));
       expect(await trendJobs()).toHaveLength(0);
     });
+  });
+});
+
+describe("all-in-one runtime daily brief (E3-03d)", () => {
+  let h: DbHandle;
+  let driver: MemoryQueueDriver;
+  const NOW = new Date("2026-10-20T06:00:00Z");
+  beforeEach(async () => {
+    h = openDb("memory://");
+    await h.migrate();
+    await seed(h.db);
+    await h.db.insert(schema.channels).values([
+      {
+        id: "ch_niche",
+        ownerId: SEED.userId,
+        platform: "youtube",
+        externalId: "UC_n",
+        title: "Old",
+        nicheId: "history",
+      },
+      { id: "ch_plain", ownerId: SEED.userId, platform: "youtube", externalId: "UC_p", title: "No niche" },
+    ]);
+    driver = new MemoryQueueDriver();
+  });
+  afterEach(async () => {
+    await driver.close();
+    await h.close();
+  });
+  const jobs = () =>
+    createWorker({
+      db: h.db,
+      driver,
+      bus: new MemoryEventBus(),
+      storage: new LocalStorage(dir),
+      trendCollectors: [new FakeTrendCollector()],
+      now: () => NOW,
+    });
+  const briefJobs = async () =>
+    (await h.db.select().from(schema.jobs).where(eq(schema.jobs.type, "trends"))).filter((j) =>
+      j.idempotencyKey.startsWith("brief:"),
+    );
+
+  it("all-in-one mode enqueues today's brief for a channel with a niche after 05:00 UTC", async () => {
+    const stop = startAllInOneBriefs("all-in-one", jobs(), h.db, { now: () => NOW });
+    const rows = await until(async () => {
+      const r = await briefJobs();
+      return r.length > 0 ? r : undefined;
+    });
+    stop();
+    expect(rows.map((r) => r.idempotencyKey)).toEqual([briefJobKey("ch_niche", "2026-10-20")]);
+    expect(rows[0]?.ownerId).toBe(SEED.userId);
+  });
+
+  it("before 05:00 UTC nothing is enqueued yet", async () => {
+    const enqueue = vi.fn();
+    const svc = jobs();
+    svc.enqueue = enqueue;
+    const stop = startAllInOneBriefs("all-in-one", svc, h.db, {
+      now: () => new Date("2026-10-20T04:59:00Z"),
+    });
+    await new Promise((r) => setTimeout(r, 100));
+    stop();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it("queue mode doesn't start a second brief schedule (the worker service schedules)", async () => {
+    const enqueue = vi.fn();
+    const svc = jobs();
+    svc.enqueue = enqueue;
+    const stop = startAllInOneBriefs("queue", svc, h.db, { now: () => NOW });
+    await new Promise((r) => setTimeout(r, 100));
+    stop();
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(await briefJobs()).toHaveLength(0);
   });
 });

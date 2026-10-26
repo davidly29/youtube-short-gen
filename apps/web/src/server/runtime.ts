@@ -48,6 +48,7 @@ import {
   createWorker,
   requeueHeldPublishes,
   startAnalyticsSchedule,
+  startBriefSchedule,
   startTrendSchedule,
   trendsConfigFromEnv,
   type ResolveContext,
@@ -125,6 +126,21 @@ export function startAllInOneTrends(
 export function startAllInOneAnalytics(mode: Runtime["mode"], jobs: JobService, db: Db): () => void {
   if (mode !== "all-in-one") return () => undefined;
   return startAnalyticsSchedule(jobs, db);
+}
+
+/**
+ * Daily brief for the all-in-one runtime (E3-03d): builds today's brief for every channel with a niche once
+ * `BRIEF_HOUR_UTC` has passed (idempotent per channel and day). Queue mode does nothing: the worker service
+ * schedules briefs. Returns a stop function.
+ */
+export function startAllInOneBriefs(
+  mode: Runtime["mode"],
+  jobs: JobService,
+  db: Db,
+  opts: { everyMs?: number; now?: () => Date } = {},
+): () => void {
+  if (mode !== "all-in-one") return () => undefined;
+  return startBriefSchedule(jobs, db, opts);
 }
 
 async function build(): Promise<Runtime> {
@@ -213,6 +229,7 @@ async function build(): Promise<Runtime> {
     { subscribe: (l) => svc.subscribe(l) },
   );
   startAllInOneAnalytics(mode, jobs, handle.db);
+  startAllInOneBriefs(mode, jobs, handle.db);
   return {
     db: handle.db,
     storage,
