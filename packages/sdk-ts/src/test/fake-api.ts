@@ -109,7 +109,20 @@ export function createFakeApi(opts: FakeApiOptions = {}) {
       return ok(200, {
         available: true,
         message: "Today's brief",
-        trends: [{ topic: "octopus hearts", why_now: "spiking" }],
+        trends: [
+          {
+            topic: "octopus hearts",
+            topic_id: "topic_1",
+            angle: "Why three hearts beat as one",
+            hook: "Octopuses have three hearts.",
+            format: "trend-explainer",
+            why_now: "spiking",
+            sources: [{ title: "Example source", url: "https://example.com/octopus" }],
+            channel_id: "ch_1",
+            channel_title: "Science Bites",
+            already_made: false,
+          },
+        ],
       });
     }
     if (method === "POST" && path === "/shorts") {

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 from urllib.parse import quote
 
 API_VERSION = "1.0.0"
-SPEC_SHA256 = "b4cb5f4c15bcc8414b61221d1b95167a2f8171f0a37814b25fd9c045a3bfa095"
+SPEC_SHA256 = "883c753bd8c230af11a59cedcc379a5dd9038f6abee0e928d620f8bef106deb9"
 
 
 def _q(value: str) -> str:
@@ -43,11 +43,43 @@ class WebhookPayload(TypedDict):
     data: WebhookPayloadData
 
 
-class CreateShortOutput(TypedDict):
+class _CreateShortOutputJobRequired(TypedDict):
+    job_id: str
+    kind: Literal["production", "publish"]
+    status: str
+    """production: scripting, producing, ready, approved, failed. publish: queued, uploading, published, scheduled, scheduled_next_window, failed."""
+    progress: float
+    done: bool
+    """true when nothing more will happen without another tool call"""
+
+
+class CreateShortOutputJob(_CreateShortOutputJobRequired, total=False):
+    """The job's state after waiting, when wait_seconds > 0."""
+    project_id: str
+    stage: str
+    """script, voice, visuals or render while producing"""
+    error: str
+    video_url: str
+    """Signed link to the rendered MP4 (expires in an hour)."""
+    publishable: bool
+    problems: List[str]
+    url: str
+    """The YouTube URL once published or scheduled."""
+    retry_at: str
+
+
+class _CreateShortOutputRequired(TypedDict):
     project_id: str
     job_id: str
     status: str
     next: str
+
+
+class CreateShortOutput(_CreateShortOutputRequired, total=False):
+    app_url: str
+    """Where the user can watch, edit and approve it in ShortLoop."""
+    job: CreateShortOutputJob
+    """The job's state after waiting, when wait_seconds > 0."""
 
 
 class CreateShortInputBodyScriptBeatsItem(TypedDict):
@@ -85,11 +117,99 @@ class CreateShortInputBody(_CreateShortInputBodyRequired, total=False):
     """Look for AI images: photoreal, cinematic, 3d, hand-drawn, whiteboard, storyboard, anime."""
     script: CreateShortInputBodyScript
     """Your own script. Omit to have ShortLoop write one with the user's AI key (needs a key in Settings → API keys)."""
+    topic_id: str
+    """The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs)."""
+    channel_voice_id: str
+    """A channel id from list_channels whose learned voice the script should follow."""
+    library_asset_ids: List[str]
+    """The user's own uploads (from list_library) to use on the beats they match, before stock or AI."""
+    wait_seconds: int
+    """Wait up to this long for the Short to finish before returning (like wait_for_job)."""
 
 
-class ApproveOutput(TypedDict):
+class ListShortsOutputShortsItem(TypedDict):
     project_id: str
-    approved: Literal[True]
+    title: str
+    status: str
+    created_at: str
+    published_urls: List[str]
+    app_url: str
+    """Link to this in the ShortLoop app."""
+
+
+class ListShortsOutput(TypedDict):
+    shorts: List[ListShortsOutputShortsItem]
+
+
+class _ShortDetailPublishesItemRequired(TypedDict):
+    channel_title: str
+    status: str
+
+
+class ShortDetailPublishesItem(_ShortDetailPublishesItemRequired, total=False):
+    url: str
+
+
+class ShortDetailScriptBeatsItem(TypedDict):
+    shot: float
+    text: str
+    visual: str
+
+
+class ShortDetailScript(TypedDict):
+    title: str
+    hook: str
+    beats: List[ShortDetailScriptBeatsItem]
+    cta: str
+
+
+class ShortDetailCaptionsItem(TypedDict):
+    index: float
+    text: str
+
+
+class ShortDetailShotsItem(TypedDict):
+    shot: float
+    source: str
+
+
+class _ShortDetailStatsRequired(TypedDict):
+    views: float
+    likes: float
+    days: float
+
+
+class ShortDetailStats(_ShortDetailStatsRequired, total=False):
+    avg_view_pct: float
+
+
+class _ShortDetailRequired(TypedDict):
+    project_id: str
+    title: str
+    status: str
+    publishable: bool
+    problems: List[str]
+    ai_label_required: bool
+    publishes: List[ShortDetailPublishesItem]
+    notices: List[str]
+    app_url: str
+    """Link to this in the ShortLoop app."""
+
+
+class ShortDetail(_ShortDetailRequired, total=False):
+    topic: str
+    error: str
+    job_id: str
+    """The latest job, for wait_for_job"""
+    script: ShortDetailScript
+    video_url: str
+    """Signed MP4 link (expires in an hour)"""
+    thumbnail_url: str
+    captions: List[ShortDetailCaptionsItem]
+    """Caption words with their index, for update_captions"""
+    shots: List[ShortDetailShotsItem]
+    """Where each shot's visual came from (stock, ai_generated, upload)"""
+    stats: ShortDetailStats
 
 
 class _JobViewRequired(TypedDict):
@@ -114,6 +234,21 @@ class JobView(_JobViewRequired, total=False):
     url: str
     """The YouTube URL once published or scheduled."""
     retry_at: str
+
+
+class UpdateCaptionsInputBodyEditsItem(TypedDict):
+    index: int
+    text: str
+
+
+class UpdateCaptionsInputBody(TypedDict):
+    edits: List[UpdateCaptionsInputBodyEditsItem]
+    """Caption word index (from get_short.captions) and the corrected word"""
+
+
+class ApproveOutput(TypedDict):
+    project_id: str
+    approved: Literal[True]
 
 
 class _SwapVisualInputBodyRequired(TypedDict):
@@ -200,15 +335,182 @@ class Balance(_BalanceRequired, total=False):
     plan: str
 
 
+class TrendsOutputTrendsItemSourcesItem(TypedDict):
+    title: str
+    url: str
+
+
 class TrendsOutputTrendsItem(TypedDict):
     topic: str
+    """Pass as create_short.topic."""
+    topic_id: str
+    """Pass as create_short.topic_id."""
+    angle: str
+    """Pass as create_short.angle."""
+    hook: str
+    format: str
+    """Format slug for get_workflow."""
     why_now: str
+    sources: List[TrendsOutputTrendsItemSourcesItem]
+    channel_id: str
+    channel_title: str
+    already_made: bool
+    """The user already started a Short from this idea."""
 
 
-class TrendsOutput(TypedDict):
+class _TrendsOutputRequired(TypedDict):
     available: bool
     message: str
     trends: List[TrendsOutputTrendsItem]
+
+
+class TrendsOutput(_TrendsOutputRequired, total=False):
+    date: str
+
+
+class CreateUploadOutput(TypedDict):
+    upload_key: str
+    upload_url: str
+    """PUT the raw file bytes here (expires in an hour)."""
+    method: Literal["PUT"]
+    headers: Dict[str, Any]
+    next: str
+
+
+class _CreateUploadInputBodyRequired(TypedDict):
+    filename: str
+    """e.g. 'my-trip.mp4'. MP4, MOV, PNG, JPG, MP3 or WAV."""
+    size_bytes: int
+    """File size; files over 2 GB are refused."""
+    i_own_this_media: bool
+    """true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it."""
+
+
+class CreateUploadInputBody(_CreateUploadInputBodyRequired, total=False):
+    content_type: str
+    """e.g. video/mp4 (optional)"""
+
+
+class _LibraryItemRequired(TypedDict):
+    asset_id: str
+    kind: str
+    """video, image or audio"""
+    title: str
+    preview_url: str
+    """Signed link (expires in an hour)"""
+
+
+class LibraryItem(_LibraryItemRequired, total=False):
+    duration_ms: float
+    width: float
+    height: float
+
+
+class FinishUploadInputBody(TypedDict):
+    upload_key: str
+    filename: str
+    i_own_this_media: bool
+    """true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it."""
+
+
+class _ListLibraryOutputAssetsItemRequired(TypedDict):
+    asset_id: str
+    kind: str
+    """video, image or audio"""
+    title: str
+    preview_url: str
+    """Signed link (expires in an hour)"""
+
+
+class ListLibraryOutputAssetsItem(_ListLibraryOutputAssetsItemRequired, total=False):
+    duration_ms: float
+    width: float
+    height: float
+
+
+class ListLibraryOutput(TypedDict):
+    assets: List[ListLibraryOutputAssetsItem]
+
+
+class _AccountOutputCreditsRequired(TypedDict):
+    shorts: float
+    ai_video_credits: float
+
+
+class AccountOutputCredits(_AccountOutputCreditsRequired, total=False):
+    plan: str
+
+
+class _AccountOutputChannelsItemRequired(TypedDict):
+    channel_id: str
+    platform: str
+    title: str
+    status: str
+    """connected or needs_reconnect"""
+    publishable: bool
+    """false while the user is over their plan's channel limit"""
+    stats: bool
+    """Whether ShortLoop can read this channel's YouTube stats"""
+
+
+class AccountOutputChannelsItem(_AccountOutputChannelsItemRequired, total=False):
+    niche: str
+    """The niche its daily brief covers"""
+
+
+class _AccountOutputRequired(TypedDict):
+    plan: str
+    unlimited: bool
+    """Admin or beta access: no credits needed"""
+    credits: AccountOutputCredits
+    ai_scripts: bool
+    """Whether create_short can write the script (the user has an AI key)"""
+    channels: List[AccountOutputChannelsItem]
+    app_url: str
+    """Link to this in the ShortLoop app."""
+    tips: List[str]
+    """What to set up next, if anything"""
+
+
+class AccountOutput(_AccountOutputRequired, total=False):
+    name: str
+
+
+class RecommendationsOutputWhyItem(TypedDict):
+    field: str
+    reason: str
+
+
+class RecommendationsOutput(TypedDict):
+    channel_id: str
+    preferred_formats: List[str]
+    hook_types: List[str]
+    length_seconds: float
+    post_hour_utc: float
+    why: List[RecommendationsOutputWhyItem]
+    based_on_shorts: float
+
+
+class _PerformanceOutputShortsItemRequired(TypedDict):
+    title: str
+    channel_title: str
+    views: float
+    likes: float
+    comments: float
+    subs_gained: float
+    days: float
+
+
+class PerformanceOutputShortsItem(_PerformanceOutputShortsItemRequired, total=False):
+    project_id: str
+    url: str
+    avg_view_pct: float
+
+
+class PerformanceOutput(TypedDict):
+    shorts: List[PerformanceOutputShortsItem]
+    reconnect: List[str]
+    """Channels to reconnect in the app before their stats show"""
 
 
 class ListWorkflowsOutputWorkflowsItem(TypedDict):
@@ -290,7 +592,7 @@ class GeneratedClient:
     def _request(self, operation_id: str, method: str, path: str, *, query: Optional[Dict[str, Any]] = None, body: Optional[Dict[str, Any]] = None) -> Any:
         raise NotImplementedError
 
-    def create_short(self, *, topic: str, angle: Optional[str] = None, length_seconds: Optional[Literal[30, 45, 60]] = None, tone: Optional[str] = None, voice_id: Optional[str] = None, caption_style: Optional[Literal["bold-pop", "clean-subtitle", "highlight-word", "karaoke", "boxed", "minimal"]] = None, image_style: Optional[str] = None, script: Optional[CreateShortInputBodyScript] = None) -> CreateShortOutput:
+    def create_short(self, *, topic: str, angle: Optional[str] = None, length_seconds: Optional[Literal[30, 45, 60]] = None, tone: Optional[str] = None, voice_id: Optional[str] = None, caption_style: Optional[Literal["bold-pop", "clean-subtitle", "highlight-word", "karaoke", "boxed", "minimal"]] = None, image_style: Optional[str] = None, script: Optional[CreateShortInputBodyScript] = None, topic_id: Optional[str] = None, channel_voice_id: Optional[str] = None, library_asset_ids: Optional[List[str]] = None, wait_seconds: Optional[int] = None) -> CreateShortOutput:
         """Create a Short
 
         Start making an original Short from a topic: script (written with the user's AI key, or the `script` you pass), voiceover, visuals, captions and render. Uses 1 Short credit. Poll or wait on the returned job.
@@ -313,7 +615,47 @@ class GeneratedClient:
             body["image_style"] = image_style
         if script is not None:
             body["script"] = script
+        if topic_id is not None:
+            body["topic_id"] = topic_id
+        if channel_voice_id is not None:
+            body["channel_voice_id"] = channel_voice_id
+        if library_asset_ids is not None:
+            body["library_asset_ids"] = library_asset_ids
+        if wait_seconds is not None:
+            body["wait_seconds"] = wait_seconds
         return self._request("createShort", "POST", "/shorts", body=body)  # type: ignore[return-value]
+
+    def list_shorts(self, *, status: Optional[Literal["any", "in_progress", "ready", "approved", "published", "failed"]] = None, limit: Optional[int] = None) -> ListShortsOutput:
+        """The account's Shorts, newest first
+
+        MCP tool: `list_shorts`.
+        """
+        query: Dict[str, Any] = {}
+        if status is not None:
+            query["status"] = status
+        if limit is not None:
+            query["limit"] = limit
+        return self._request("listShorts", "GET", "/shorts", query=query)  # type: ignore[return-value]
+
+    def get_short(self, project_id: str) -> ShortDetail:
+        """Everything about one Short
+
+        Status, script with shots, signed video and thumbnail links, caption words (for /captions), visual sources, whether it can be published, publishes, stats and a link into the app.
+
+        MCP tool: `get_short`.
+        """
+        return self._request("getShort", "GET", f"/shorts/{_q(project_id)}")  # type: ignore[return-value]
+
+    def update_captions(self, project_id: str, *, edits: List[UpdateCaptionsInputBodyEditsItem]) -> JobView:
+        """Fix caption words and re-render
+
+        Free. Indexes come from GET /shorts/{project_id}. Clears any approval. Returns a job to wait on.
+
+        MCP tool: `update_captions`.
+        """
+        body: Dict[str, Any] = {}
+        body["edits"] = edits
+        return self._request("updateCaptions", "POST", f"/shorts/{_q(project_id)}/captions", body=body)  # type: ignore[return-value]
 
     def approve_short(self, project_id: str) -> ApproveOutput:
         """Approve a rendered Short for publishing
@@ -406,15 +748,74 @@ class GeneratedClient:
         """
         return self._request("getBalance", "GET", "/balance")  # type: ignore[return-value]
 
-    def get_trends(self, *, niche: Optional[str] = None) -> TrendsOutput:
-        """Trending topics
+    def get_trends(self, *, niche: Optional[str] = None, channel_id: Optional[str] = None) -> TrendsOutput:
+        """Today's ideas from the account's daily trend brief
 
         MCP tool: `get_trends`.
         """
         query: Dict[str, Any] = {}
         if niche is not None:
             query["niche"] = niche
+        if channel_id is not None:
+            query["channel_id"] = channel_id
         return self._request("getTrends", "GET", "/trends", query=query)  # type: ignore[return-value]
+
+    def create_upload(self, *, filename: str, size_bytes: int, i_own_this_media: bool, content_type: Optional[str] = None) -> CreateUploadOutput:
+        """Start an upload of the user's own media
+
+        Only media the user owns or has rights to (`i_own_this_media: true`). PUT the bytes to `upload_url`, then POST /uploads/finish.
+
+        MCP tool: `create_upload`.
+        """
+        body: Dict[str, Any] = {}
+        body["filename"] = filename
+        body["size_bytes"] = size_bytes
+        body["i_own_this_media"] = i_own_this_media
+        if content_type is not None:
+            body["content_type"] = content_type
+        return self._request("createUpload", "POST", "/uploads", body=body)  # type: ignore[return-value]
+
+    def finish_upload(self, *, upload_key: str, filename: str, i_own_this_media: bool) -> LibraryItem:
+        """Record an uploaded file in the library
+
+        MCP tool: `finish_upload`.
+        """
+        body: Dict[str, Any] = {}
+        body["upload_key"] = upload_key
+        body["filename"] = filename
+        body["i_own_this_media"] = i_own_this_media
+        return self._request("finishUpload", "POST", "/uploads/finish", body=body)  # type: ignore[return-value]
+
+    def list_library(self) -> ListLibraryOutput:
+        """The user's own uploads
+
+        MCP tool: `list_library`.
+        """
+        return self._request("listLibrary", "GET", "/library")  # type: ignore[return-value]
+
+    def get_account(self) -> AccountOutput:
+        """Plan, credits, channels and what to set up next
+
+        MCP tool: `get_account`.
+        """
+        return self._request("getAccount", "GET", "/account")  # type: ignore[return-value]
+
+    def get_recommendations(self, *, channel_id: Optional[str] = None) -> RecommendationsOutput:
+        """Formats, hooks, length and posting hour that work for a channel
+
+        MCP tool: `get_recommendations`.
+        """
+        query: Dict[str, Any] = {}
+        if channel_id is not None:
+            query["channel_id"] = channel_id
+        return self._request("getRecommendations", "GET", "/recommendations", query=query)  # type: ignore[return-value]
+
+    def get_performance(self) -> PerformanceOutput:
+        """Views and retention per published Short
+
+        MCP tool: `get_performance`.
+        """
+        return self._request("getPerformance", "GET", "/performance")  # type: ignore[return-value]
 
     def list_workflows(self) -> ListWorkflowsOutput:
         """Short formats with step-by-step playbooks
