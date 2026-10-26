@@ -1,0 +1,19 @@
+{
+  "baseUrl": "{{connection.apiUrl}}",
+  "headers": { "authorization": "Bearer {{connection.apiKey}}", "accept": "application/json" },
+  "response": {
+    "error": {
+      "401": {
+        "message": "ShortLoop didn't accept the API key. Create a new one in Settings → Developer.",
+        "type": "AccountValidationError"
+      },
+      "429": {
+        "message": "ShortLoop's rate limit was hit: {{body.error.message}}",
+        "type": "RateLimitError"
+      },
+      "message": "[{{statusCode}}] {{body.error.message}}",
+      "type": "DataError"
+    }
+  },
+  "log": { "sanitize": ["request.headers.authorization"] }
+}

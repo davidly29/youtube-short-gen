@@ -1,0 +1,11 @@
+{
+  "name": "listChannels",
+  "label": "List channels",
+  "communication": {
+    "url": "/account",
+    "response": {
+      "iterate": "{{body.channels}}",
+      "output": { "label": "{{item.title}}", "value": "{{item.channel_id}}" }
+    }
+  }
+}

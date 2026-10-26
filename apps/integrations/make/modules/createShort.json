@@ -1,0 +1,112 @@
+{
+  "name": "createShort",
+  "label": "Create a Short",
+  "description": "Creates an original Short from a topic: script, voiceover, visuals and captions. Uses 1 Short credit.",
+  "type": "action",
+  "connection": "shortloop",
+  "parameters": [],
+  "expect": [
+    {
+      "name": "topic",
+      "label": "Topic",
+      "help": "What the Short is about, e.g. 'why octopuses have three hearts' (3–300 characters).",
+      "required": true,
+      "type": "text"
+    },
+    {
+      "name": "angle",
+      "label": "Angle",
+      "help": "Optional take or framing for the script.",
+      "required": false,
+      "type": "text"
+    },
+    {
+      "name": "length_seconds",
+      "label": "Length",
+      "help": "How long the Short should be: 30, 45 or 60 seconds.",
+      "required": false,
+      "type": "select",
+      "default": 45,
+      "options": [
+        { "label": "30 seconds", "value": 30 },
+        { "label": "45 seconds", "value": 45 },
+        { "label": "60 seconds", "value": 60 }
+      ]
+    },
+    {
+      "name": "tone",
+      "label": "Tone",
+      "help": "How the narration should sound, e.g. curious, upbeat, serious.",
+      "required": false,
+      "type": "text",
+      "default": "curious"
+    },
+    {
+      "name": "caption_style",
+      "label": "Caption Style",
+      "help": "How captions look on the video.",
+      "required": false,
+      "type": "select",
+      "default": "bold-pop",
+      "options": [
+        { "value": "bold-pop", "label": "Bold pop" },
+        { "value": "clean-subtitle", "label": "Clean subtitle" },
+        { "value": "highlight-word", "label": "Highlight word" },
+        { "value": "karaoke", "label": "Karaoke" },
+        { "value": "boxed", "label": "Boxed" },
+        { "value": "minimal", "label": "Minimal" }
+      ]
+    },
+    {
+      "name": "image_style",
+      "label": "Image Style",
+      "help": "Look for AI images: photoreal, cinematic, 3d, hand-drawn, whiteboard, storyboard or anime.",
+      "required": false,
+      "type": "text",
+      "default": "cinematic"
+    },
+    {
+      "name": "voice_id",
+      "label": "Voice",
+      "help": "Narrator voice. Leave empty for your default voice.",
+      "required": false,
+      "type": "select",
+      "options": "rpc://listVoices"
+    },
+    {
+      "name": "channel_voice_id",
+      "label": "Channel Voice",
+      "help": "Write the script in the learned voice of one of your connected channels.",
+      "required": false,
+      "type": "select",
+      "options": "rpc://listChannels"
+    },
+    {
+      "name": "topic_id",
+      "label": "Brief Idea ID",
+      "help": "The Topic ID from a New Brief Idea trigger, so the idea drops out of later briefs.",
+      "required": false,
+      "type": "text"
+    }
+  ],
+  "communication": {
+    "url": "/shorts",
+    "method": "POST",
+    "body": "{{parameters}}",
+    "response": { "output": "{{body}}" }
+  },
+  "interface": [
+    { "name": "project_id", "label": "Project ID", "type": "text" },
+    { "name": "job_id", "label": "Job ID", "type": "text" },
+    { "name": "status", "label": "Status", "type": "text" },
+    { "name": "next", "label": "Next step", "type": "text" },
+    { "name": "app_url", "label": "Review link", "type": "url" }
+  ],
+  "samples": {
+    "project_id": "prj_sample",
+    "job_id": "job_sample",
+    "status": "scripting",
+    "next": "Wait for the job, then review and approve the Short in ShortLoop.",
+    "app_url": "https://shortloop.example/projects/prj_sample"
+  }
+}

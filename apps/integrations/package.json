@@ -1,0 +1,30 @@
+{
+  "name": "@shortloop/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ShortLoop integrations: Zapier app, Make app and the Notion/Google Sheets content-calendar import (E12-03)",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src scripts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "build:make": "tsx scripts/build-make.ts",
+    "build:zapier": "tsx scripts/build-zapier.ts",
+    "import:calendar": "tsx scripts/import.ts"
+  },
+  "dependencies": {
+    "@shortloop/contracts": "workspace:*",
+    "@shortloop/mcp": "workspace:*",
+    "@shortloop/sdk-ts": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "zapier-platform-schema": "19.2.1"
+  }
+}

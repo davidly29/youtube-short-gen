@@ -1,0 +1,63 @@
+{
+  "name": "watchBriefIdeas",
+  "label": "Watch Brief Ideas",
+  "description": "Triggers when your daily trend brief has a new idea you haven't made yet.",
+  "type": "trigger",
+  "connection": "shortloop",
+  "parameters": [
+    {
+      "name": "limit",
+      "label": "Limit",
+      "type": "uinteger",
+      "required": true,
+      "default": 5,
+      "help": "The most ideas to return in one cycle."
+    },
+    {
+      "name": "niche",
+      "label": "Niche",
+      "type": "text",
+      "help": "Only ideas for this niche, e.g. history or tech."
+    },
+    {
+      "name": "channel_id",
+      "label": "Channel",
+      "type": "select",
+      "options": "rpc://listChannels",
+      "help": "Only ideas from this channel's brief."
+    }
+  ],
+  "expect": [],
+  "communication": {
+    "url": "/trends",
+    "qs": "{{omit(parameters; 'limit')}}",
+    "response": {
+      "iterate": { "container": "{{body.trends}}", "condition": "{{!item.already_made}}" },
+      "output": "{{item}}",
+      "limit": "{{parameters.limit}}",
+      "trigger": { "id": "{{item.topic_id}}", "type": "id", "order": "unordered" }
+    }
+  },
+  "interface": [
+    { "name": "topic_id", "label": "Topic ID", "type": "text" },
+    { "name": "topic", "label": "Topic", "type": "text" },
+    { "name": "angle", "label": "Angle", "type": "text" },
+    { "name": "hook", "label": "Hook", "type": "text" },
+    { "name": "format", "label": "Format", "type": "text" },
+    { "name": "why_now", "label": "Why now", "type": "text" },
+    { "name": "channel_id", "label": "Channel ID", "type": "text" },
+    { "name": "channel_title", "label": "Channel", "type": "text" },
+    { "name": "sources", "label": "Sources", "type": "array" }
+  ],
+  "samples": {
+    "topic_id": "top_sample_octopus",
+    "topic": "Octopus intelligence study",
+    "angle": "What a new study says about how octopuses solve puzzles",
+    "hook": "Octopuses just solved a puzzle most toddlers can't.",
+    "format": "trend-explainer",
+    "why_now": "Search interest tripled in the last 24 hours.",
+    "channel_id": "ch_sample",
+    "channel_title": "Ocean Facts",
+    "sources": [{ "title": "New octopus study", "url": "https://news.example/octopus" }]
+  }
+}

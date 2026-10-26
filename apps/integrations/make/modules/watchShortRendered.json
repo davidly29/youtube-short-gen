@@ -1,0 +1,17 @@
+{
+  "name": "watchShortRendered",
+  "label": "Watch Rendered Shorts",
+  "description": "Triggers when a Short finishes rendering and is ready to review.",
+  "type": "instant_trigger",
+  "webhook": "shortRendered",
+  "parameters": [],
+  "expect": [],
+  "communication": { "output": "{{body.data}}" },
+  "interface": [
+    { "name": "project_id", "label": "Project ID", "type": "text" },
+    { "name": "job_id", "label": "Job ID", "type": "text" },
+    { "name": "kind", "label": "Job kind", "type": "text" },
+    { "name": "status", "label": "Status", "type": "text" }
+  ],
+  "samples": { "project_id": "prj_sample", "job_id": "job_sample", "kind": "production", "status": "ready" }
+}

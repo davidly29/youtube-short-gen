@@ -1,0 +1,14 @@
+{
+  "name": "shortRendered",
+  "label": "Short rendered",
+  "type": "dedicated",
+  "connection": "shortloop",
+  "attach": {
+    "url": "/webhooks",
+    "method": "POST",
+    "body": { "url": "{{webhook.url}}", "events": ["job.succeeded"] },
+    "response": { "data": { "externalHookId": "{{body.id}}" } }
+  },
+  "detach": { "url": "/webhooks/{{webhook.externalHookId}}", "method": "DELETE" },
+  "communication": { "output": "{{body.data}}" }
+}
