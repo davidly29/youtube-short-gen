@@ -1,0 +1,44 @@
+{
+  "name": "getShort",
+  "label": "Get a Short",
+  "description": "Returns a Short's status, links and whether it is ready to publish.",
+  "type": "action",
+  "connection": "shortloop",
+  "parameters": [],
+  "expect": [
+    {
+      "name": "project_id",
+      "label": "Project ID",
+      "type": "text",
+      "required": true,
+      "help": "From Create a Short or Watch Rendered Shorts."
+    }
+  ],
+  "communication": {
+    "url": "/shorts/{{parameters.project_id}}",
+    "method": "GET",
+    "response": { "output": "{{body}}" }
+  },
+  "interface": [
+    { "name": "project_id", "label": "Project ID", "type": "text" },
+    { "name": "title", "label": "Title", "type": "text" },
+    { "name": "topic", "label": "Topic", "type": "text" },
+    { "name": "status", "label": "Status", "type": "text" },
+    { "name": "app_url", "label": "Review link", "type": "url" },
+    { "name": "video_url", "label": "Video URL (expires in an hour)", "type": "url" },
+    { "name": "thumbnail_url", "label": "Thumbnail URL", "type": "url" },
+    { "name": "publishable", "label": "Ready to publish", "type": "boolean" },
+    { "name": "problems", "label": "Problems blocking publish", "type": "array" }
+  ],
+  "samples": {
+    "project_id": "prj_sample",
+    "title": "Why octopuses have three hearts",
+    "topic": "why octopuses have three hearts",
+    "status": "ready",
+    "app_url": "https://shortloop.example/projects/prj_sample",
+    "video_url": "https://media.shortloop.example/prj_sample.mp4",
+    "thumbnail_url": "https://media.shortloop.example/prj_sample.jpg",
+    "publishable": true,
+    "problems": []
+  }
+}

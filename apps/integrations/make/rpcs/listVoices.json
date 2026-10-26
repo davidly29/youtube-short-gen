@@ -1,0 +1,11 @@
+{
+  "name": "listVoices",
+  "label": "List voices",
+  "communication": {
+    "url": "/voices",
+    "response": {
+      "iterate": "{{body.voices}}",
+      "output": { "label": "{{item.label}}", "value": "{{item.id}}" }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "shortloop",
+  "label": "ShortLoop",
+  "type": "basic",
+  "parameters": [
+    {
+      "name": "apiUrl",
+      "label": "API URL",
+      "type": "url",
+      "required": true,
+      "help": "Your ShortLoop address followed by /api/v1, e.g. https://app.shortloop.example/api/v1."
+    },
+    {
+      "name": "apiKey",
+      "label": "API key",
+      "type": "password",
+      "required": true,
+      "help": "An sl_… key from ShortLoop → Settings → Developer → Create key. Scenarios act as you and use your credits."
+    }
+  ],
+  "communication": {
+    "url": "{{parameters.apiUrl}}/account",
+    "headers": { "authorization": "Bearer {{parameters.apiKey}}" },
+    "response": {
+      "metadata": { "type": "text", "value": "{{body.name}}" },
+      "error": {
+        "401": {
+          "message": "ShortLoop didn't accept the API key. Create a new one in Settings → Developer.",
+          "type": "AccountValidationError"
+        },
+        "429": {
+          "message": "ShortLoop's rate limit was hit: {{body.error.message}}",
+          "type": "RateLimitError"
+        },
+        "message": "[{{statusCode}}] {{body.error.message}}",
+        "type": "DataError"
+      }
+    },
+    "log": { "sanitize": ["request.headers.authorization"] }
+  }
+}
