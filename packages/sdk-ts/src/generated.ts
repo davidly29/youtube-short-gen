@@ -2,7 +2,7 @@
 
 export const API_VERSION = "1.0.0";
 /** SHA-256 of the OpenAPI document this SDK was generated from. */
-export const SPEC_SHA256 = "b4cb5f4c15bcc8414b61221d1b95167a2f8171f0a37814b25fd9c045a3bfa095";
+export const SPEC_SHA256 = "883c753bd8c230af11a59cedcc379a5dd9038f6abee0e928d620f8bef106deb9";
 
 export type ApiError = {
   error: {
@@ -34,7 +34,35 @@ export type WebhookPayload = {
   };
 };
 
-export type CreateShortOutput = { project_id: string; job_id: string; status: string; next: string };
+export type CreateShortOutput = {
+  project_id: string;
+  job_id: string;
+  status: string;
+  next: string;
+  /** Where the user can watch, edit and approve it in ShortLoop. */
+  app_url?: string;
+  /** The job's state after waiting, when wait_seconds > 0. */
+  job?: {
+    job_id: string;
+    kind: "production" | "publish";
+    project_id?: string;
+    /** production: scripting, producing, ready, approved, failed. publish: queued, uploading, published, scheduled, scheduled_next_window, failed. */
+    status: string;
+    /** script, voice, visuals or render while producing */
+    stage?: string;
+    progress: number;
+    /** true when nothing more will happen without another tool call */
+    done: boolean;
+    error?: string;
+    /** Signed link to the rendered MP4 (expires in an hour). */
+    video_url?: string;
+    publishable?: boolean;
+    problems?: string[];
+    /** The YouTube URL once published or scheduled. */
+    url?: string;
+    retry_at?: string;
+  };
+};
 
 export type CreateShortInputBody = {
   /** What the Short is about, e.g. 'why octopuses have three hearts'. */
@@ -60,9 +88,58 @@ export type CreateShortInputBody = {
     }[];
     cta?: string;
   };
+  /** The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs). */
+  topic_id?: string;
+  /** A channel id from list_channels whose learned voice the script should follow. */
+  channel_voice_id?: string;
+  /** The user's own uploads (from list_library) to use on the beats they match, before stock or AI. */
+  library_asset_ids?: string[];
+  /** Wait up to this long for the Short to finish before returning (like wait_for_job). */
+  wait_seconds?: number;
 };
 
-export type ApproveOutput = { project_id: string; approved: true };
+export type ListShortsOutput = {
+  shorts: {
+    project_id: string;
+    title: string;
+    status: string;
+    created_at: string;
+    published_urls: string[];
+    /** Link to this in the ShortLoop app. */
+    app_url: string;
+  }[];
+};
+
+export type ShortDetail = {
+  project_id: string;
+  title: string;
+  topic?: string;
+  status: string;
+  error?: string;
+  /** The latest job, for wait_for_job */
+  job_id?: string;
+  script?: {
+    title: string;
+    hook: string;
+    beats: { shot: number; text: string; visual: string }[];
+    cta: string;
+  };
+  /** Signed MP4 link (expires in an hour) */
+  video_url?: string;
+  thumbnail_url?: string;
+  /** Caption words with their index, for update_captions */
+  captions?: { index: number; text: string }[];
+  /** Where each shot's visual came from (stock, ai_generated, upload) */
+  shots?: { shot: number; source: string }[];
+  publishable: boolean;
+  problems: string[];
+  ai_label_required: boolean;
+  publishes: { channel_title: string; status: string; url?: string }[];
+  stats?: { views: number; avg_view_pct?: number; likes: number; days: number };
+  notices: string[];
+  /** Link to this in the ShortLoop app. */
+  app_url: string;
+};
 
 export type JobView = {
   job_id: string;
@@ -84,6 +161,13 @@ export type JobView = {
   url?: string;
   retry_at?: string;
 };
+
+export type UpdateCaptionsInputBody = {
+  /** Caption word index (from get_short.captions) and the corrected word */
+  edits: { index: number; text: string }[];
+};
+
+export type ApproveOutput = { project_id: string; approved: true };
 
 export type SwapVisualInputBody = {
   /** 1-based shot number */
@@ -135,7 +219,131 @@ export type Balance = { shorts: number; ai_video_credits: number; plan?: string 
 export type TrendsOutput = {
   available: boolean;
   message: string;
-  trends: { topic: string; why_now: string }[];
+  date?: string;
+  trends: {
+    /** Pass as create_short.topic. */
+    topic: string;
+    /** Pass as create_short.topic_id. */
+    topic_id: string;
+    /** Pass as create_short.angle. */
+    angle: string;
+    hook: string;
+    /** Format slug for get_workflow. */
+    format: string;
+    why_now: string;
+    sources: { title: string; url: string }[];
+    channel_id: string;
+    channel_title: string;
+    /** The user already started a Short from this idea. */
+    already_made: boolean;
+  }[];
+};
+
+export type CreateUploadOutput = {
+  upload_key: string;
+  /** PUT the raw file bytes here (expires in an hour). */
+  upload_url: string;
+  method: "PUT";
+  headers: Record<string, unknown>;
+  next: string;
+};
+
+export type CreateUploadInputBody = {
+  /** e.g. 'my-trip.mp4'. MP4, MOV, PNG, JPG, MP3 or WAV. */
+  filename: string;
+  /** e.g. video/mp4 (optional) */
+  content_type?: string;
+  /** File size; files over 2 GB are refused. */
+  size_bytes: number;
+  /** true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it. */
+  i_own_this_media: boolean;
+};
+
+export type LibraryItem = {
+  asset_id: string;
+  /** video, image or audio */
+  kind: string;
+  title: string;
+  duration_ms?: number;
+  width?: number;
+  height?: number;
+  /** Signed link (expires in an hour) */
+  preview_url: string;
+};
+
+export type FinishUploadInputBody = {
+  upload_key: string;
+  filename: string;
+  /** true only if the user has told you they own this media or have the rights to use it. Uploads are refused without it. */
+  i_own_this_media: boolean;
+};
+
+export type ListLibraryOutput = {
+  assets: {
+    asset_id: string;
+    /** video, image or audio */
+    kind: string;
+    title: string;
+    duration_ms?: number;
+    width?: number;
+    height?: number;
+    /** Signed link (expires in an hour) */
+    preview_url: string;
+  }[];
+};
+
+export type AccountOutput = {
+  name?: string;
+  plan: string;
+  /** Admin or beta access: no credits needed */
+  unlimited: boolean;
+  credits: { shorts: number; ai_video_credits: number; plan?: string };
+  /** Whether create_short can write the script (the user has an AI key) */
+  ai_scripts: boolean;
+  channels: {
+    channel_id: string;
+    platform: string;
+    title: string;
+    /** connected or needs_reconnect */
+    status: string;
+    /** false while the user is over their plan's channel limit */
+    publishable: boolean;
+    /** The niche its daily brief covers */
+    niche?: string;
+    /** Whether ShortLoop can read this channel's YouTube stats */
+    stats: boolean;
+  }[];
+  /** Link to this in the ShortLoop app. */
+  app_url: string;
+  /** What to set up next, if anything */
+  tips: string[];
+};
+
+export type RecommendationsOutput = {
+  channel_id: string;
+  preferred_formats: string[];
+  hook_types: string[];
+  length_seconds: number;
+  post_hour_utc: number;
+  why: { field: string; reason: string }[];
+  based_on_shorts: number;
+};
+
+export type PerformanceOutput = {
+  shorts: {
+    project_id?: string;
+    title: string;
+    channel_title: string;
+    url?: string;
+    views: number;
+    avg_view_pct?: number;
+    likes: number;
+    comments: number;
+    subs_gained: number;
+    days: number;
+  }[];
+  /** Channels to reconnect in the app before their stats show */
+  reconnect: string[];
 };
 
 export type ListWorkflowsOutput = { workflows: { slug: string; title: string; summary: string }[] };
@@ -213,6 +421,57 @@ export abstract class GeneratedClient {
       operationId: "createShort",
       method: "POST",
       path: "/shorts",
+      body,
+    });
+  }
+
+  /**
+   * The account's Shorts, newest first
+   *
+   * MCP tool: `list_shorts`.
+   */
+  listShorts(
+    query: {
+      /** in_progress = being scripted or rendered */
+      status?: "any" | "in_progress" | "ready" | "approved" | "published" | "failed";
+      limit?: number;
+    } = {},
+  ): Promise<ListShortsOutput> {
+    return this.request<ListShortsOutput>({
+      operationId: "listShorts",
+      method: "GET",
+      path: "/shorts",
+      query,
+    });
+  }
+
+  /**
+   * Everything about one Short
+   *
+   * Status, script with shots, signed video and thumbnail links, caption words (for /captions), visual sources, whether it can be published, publishes, stats and a link into the app.
+   *
+   * MCP tool: `get_short`.
+   */
+  getShort(projectId: string): Promise<ShortDetail> {
+    return this.request<ShortDetail>({
+      operationId: "getShort",
+      method: "GET",
+      path: `/shorts/${encodeURIComponent(projectId)}`,
+    });
+  }
+
+  /**
+   * Fix caption words and re-render
+   *
+   * Free. Indexes come from GET /shorts/{project_id}. Clears any approval. Returns a job to wait on.
+   *
+   * MCP tool: `update_captions`.
+   */
+  updateCaptions(projectId: string, body: UpdateCaptionsInputBody): Promise<JobView> {
+    return this.request<JobView>({
+      operationId: "updateCaptions",
+      method: "POST",
+      path: `/shorts/${encodeURIComponent(projectId)}/captions`,
       body,
     });
   }
@@ -332,12 +591,98 @@ export abstract class GeneratedClient {
   }
 
   /**
-   * Trending topics
+   * Today's ideas from the account's daily trend brief
    *
    * MCP tool: `get_trends`.
    */
-  getTrends(query: { niche?: string } = {}): Promise<TrendsOutput> {
+  getTrends(
+    query: {
+      /** Filter by niche name or id, e.g. 'history' or 'tech'. */
+      niche?: string; /** Only this channel's brief (from list_channels). */
+      channel_id?: string;
+    } = {},
+  ): Promise<TrendsOutput> {
     return this.request<TrendsOutput>({ operationId: "getTrends", method: "GET", path: "/trends", query });
+  }
+
+  /**
+   * Start an upload of the user's own media
+   *
+   * Only media the user owns or has rights to (`i_own_this_media: true`). PUT the bytes to `upload_url`, then POST /uploads/finish.
+   *
+   * MCP tool: `create_upload`.
+   */
+  createUpload(body: CreateUploadInputBody): Promise<CreateUploadOutput> {
+    return this.request<CreateUploadOutput>({
+      operationId: "createUpload",
+      method: "POST",
+      path: "/uploads",
+      body,
+    });
+  }
+
+  /**
+   * Record an uploaded file in the library
+   *
+   * MCP tool: `finish_upload`.
+   */
+  finishUpload(body: FinishUploadInputBody): Promise<LibraryItem> {
+    return this.request<LibraryItem>({
+      operationId: "finishUpload",
+      method: "POST",
+      path: "/uploads/finish",
+      body,
+    });
+  }
+
+  /**
+   * The user's own uploads
+   *
+   * MCP tool: `list_library`.
+   */
+  listLibrary(): Promise<ListLibraryOutput> {
+    return this.request<ListLibraryOutput>({ operationId: "listLibrary", method: "GET", path: "/library" });
+  }
+
+  /**
+   * Plan, credits, channels and what to set up next
+   *
+   * MCP tool: `get_account`.
+   */
+  getAccount(): Promise<AccountOutput> {
+    return this.request<AccountOutput>({ operationId: "getAccount", method: "GET", path: "/account" });
+  }
+
+  /**
+   * Formats, hooks, length and posting hour that work for a channel
+   *
+   * MCP tool: `get_recommendations`.
+   */
+  getRecommendations(
+    query: {
+      /** Defaults to the user's only connected channel. */
+      channel_id?: string;
+    } = {},
+  ): Promise<RecommendationsOutput> {
+    return this.request<RecommendationsOutput>({
+      operationId: "getRecommendations",
+      method: "GET",
+      path: "/recommendations",
+      query,
+    });
+  }
+
+  /**
+   * Views and retention per published Short
+   *
+   * MCP tool: `get_performance`.
+   */
+  getPerformance(): Promise<PerformanceOutput> {
+    return this.request<PerformanceOutput>({
+      operationId: "getPerformance",
+      method: "GET",
+      path: "/performance",
+    });
   }
 
   /**
