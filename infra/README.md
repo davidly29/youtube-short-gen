@@ -48,7 +48,7 @@ Until we need a separate worker, `web` runs every job itself (no `REDIS_URL` set
 | `FINGERPRINT_REQUIRED`                        | `1` refuses to publish uploaded audio while the music check isn't configured (default: skip and record it) |
 | `TIKTOK_CLIENT_KEY` / `_SECRET`               | TikTok Login Kit + Content Posting app; see `docs/setup/tiktok.md` (TikTok posting is off until set)       |
 | `TIKTOK_AUDITED`                              | unset until TikTok approves the Direct Post audit (H-01); until then every post is private ("Only me")     |
-| `INSTAGRAM_APP_ID` / `_SECRET`                | Meta app with Instagram Login for Reels (E8-04); see `docs/setup/instagram.md`                             |
+| `INSTAGRAM_APP_ID` / `_SECRET`                | Instagram Login + Reels (E8-04/E8-04b); web and worker; `docs/setup/instagram.md`                          |
 | `API_RATE_LIMIT_PER_MINUTE`                   | public REST API requests per key per minute (default 60); see `docs/setup/api.md`                          |
 | `WEBHOOK_SENDER`                              | unset (real HTTPS delivery); `fake` records API webhooks without sending them (local demos)                |
 
