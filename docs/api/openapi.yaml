@@ -825,7 +825,7 @@ paths:
         - name: channel_id
           in: query
           required: false
-          description: Only this channel's brief (from list_channels).
+          description: Only this channel's brief (a channel_id from get_account).
           schema:
             type: string
             maxLength: 80
@@ -1912,7 +1912,7 @@ components:
           type: string
           pattern: ^top_[A-Za-z0-9_]{1,60}$
         channel_voice_id:
-          description: A channel id from list_channels whose learned voice the script should follow.
+          description: A channel_id from get_account's channels. When that channel's voice is switched on in ShortLoop (Settings → Channel voice), the AI script follows it; otherwise it's ignored.
           type: string
           maxLength: 80
         library_asset_ids:

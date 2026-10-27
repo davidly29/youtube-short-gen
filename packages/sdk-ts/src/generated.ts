@@ -2,7 +2,7 @@
 
 export const API_VERSION = "1.0.0";
 /** SHA-256 of the OpenAPI document this SDK was generated from. */
-export const SPEC_SHA256 = "883c753bd8c230af11a59cedcc379a5dd9038f6abee0e928d620f8bef106deb9";
+export const SPEC_SHA256 = "3c286a59bde119ca3f2bf58b11f1a4315e3a1d1fb5aeb2e6cafbe97de98b66b3";
 
 export type ApiError = {
   error: {
@@ -90,7 +90,7 @@ export type CreateShortInputBody = {
   };
   /** The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs). */
   topic_id?: string;
-  /** A channel id from list_channels whose learned voice the script should follow. */
+  /** A channel_id from get_account's channels. When that channel's voice is switched on in ShortLoop (Settings → Channel voice), the AI script follows it; otherwise it's ignored. */
   channel_voice_id?: string;
   /** The user's own uploads (from list_library) to use on the beats they match, before stock or AI. */
   library_asset_ids?: string[];
@@ -598,7 +598,7 @@ export abstract class GeneratedClient {
   getTrends(
     query: {
       /** Filter by niche name or id, e.g. 'history' or 'tech'. */
-      niche?: string; /** Only this channel's brief (from list_channels). */
+      niche?: string; /** Only this channel's brief (a channel_id from get_account). */
       channel_id?: string;
     } = {},
   ): Promise<TrendsOutput> {
