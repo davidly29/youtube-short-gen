@@ -51,7 +51,9 @@ export const CreateShortInput = z.object({
     .string()
     .max(80)
     .optional()
-    .describe("A channel id from list_channels whose learned voice the script should follow."),
+    .describe(
+      "A channel_id from get_account's channels. When that channel's voice is switched on in ShortLoop (Settings → Channel voice), the AI script follows it; otherwise it's ignored.",
+    ),
   library_asset_ids: z
     .array(z.string().max(100))
     .max(30)
@@ -158,7 +160,11 @@ export const PublishOutput = z.object({
 
 export const TrendsInput = z.object({
   niche: z.string().max(80).optional().describe("Filter by niche name or id, e.g. 'history' or 'tech'."),
-  channel_id: z.string().max(80).optional().describe("Only this channel's brief (from list_channels)."),
+  channel_id: z
+    .string()
+    .max(80)
+    .optional()
+    .describe("Only this channel's brief (a channel_id from get_account)."),
 });
 export const TrendIdea = z.object({
   topic: z.string().describe("Pass as create_short.topic."),

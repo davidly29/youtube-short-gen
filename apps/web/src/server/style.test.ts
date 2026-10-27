@@ -34,6 +34,13 @@ beforeEach(async () => {
     jobs,
     fake: true,
     providersFor: async () => ({ llm: {} }),
+    // What MCP create_short needs: an AI key (llm) and one voice.
+    resolve: async () => ({ llm: { provider: "fake" }, route: {}, notices: [], usage: { premiumImages: 0 } }),
+    tts: {
+      voices: () => [{ id: "v1", label: "Ava", language: "en", provider: "fake", commercialUse: true }],
+    },
+    stock: [],
+    image: { provider: "free" },
   } as unknown as Runtime);
 });
 afterEach(async () => {
@@ -104,5 +111,48 @@ describe("scripts use the chosen channel voice", () => {
     expect(enqueued.at(-1)?.input.styleProfile).toBeUndefined();
     const stored = await h.db.query.projects.findFirst({ where: eq(schema.projects.id, p1) });
     expect(stored?.settings.styleChannelId).toBe(ch);
+  });
+});
+
+describe("MCP create_short uses the channel voice (E4-03b)", () => {
+  const short = (channel_voice_id?: string) => ({
+    topic: "why the legion marched",
+    length_seconds: 45 as const,
+    tone: "curious",
+    caption_style: "bold-pop" as const,
+    image_style: "cinematic",
+    wait_seconds: 0,
+    channel_voice_id,
+  });
+
+  it("enqueues the script job with the enabled profile of the user's own channel, and none otherwise", async () => {
+    const { buildChannelVoice, setChannelVoiceEnabled } = await import("./style");
+    const { mcpServicesFor } = await import("./mcp-services");
+    const built = await buildChannelVoice(SEED.userId, ch);
+    const svc = mcpServicesFor(SEED.userId);
+
+    const withVoice = await svc.createShort(short(ch));
+    expect(withVoice.status).toBe("scripting");
+    expect(enqueued.at(-1)).toMatchObject({ type: "script", input: { projectId: withVoice.project_id } });
+    expect(enqueued.at(-1)?.input.styleProfile).toEqual(built.profile);
+
+    await svc.createShort(short());
+    expect(enqueued.at(-1)?.input.styleProfile).toBeUndefined();
+
+    await setChannelVoiceEnabled(SEED.userId, ch, false);
+    await svc.createShort(short(ch));
+    expect(enqueued.at(-1)?.input.styleProfile).toBeUndefined();
+  });
+
+  it("ignores another user's channel id (no profile used)", async () => {
+    const { buildChannelVoice } = await import("./style");
+    const { mcpServicesFor } = await import("./mcp-services");
+    await buildChannelVoice(SEED.userId, ch);
+    // Credit-exempt so the credit check doesn't stop the other user first.
+    await h.db.update(schema.users).set({ creditExempt: true }).where(eq(schema.users.id, OTHER));
+
+    const theirs = await mcpServicesFor(OTHER).createShort(short(ch));
+    expect(enqueued.at(-1)).toMatchObject({ type: "script", input: { projectId: theirs.project_id } });
+    expect(enqueued.at(-1)?.input.styleProfile).toBeUndefined();
   });
 });
