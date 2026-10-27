@@ -51,7 +51,9 @@ export const CreateShortInput = z.object({
     .string()
     .max(80)
     .optional()
-    .describe("A channel id from list_channels whose learned voice the script should follow."),
+    .describe(
+      "A channel_id from get_account whose channel voice is on (`voice: true`): the AI-written script follows that channel's learned voice. Ignored when the voice is off (Settings → Channel voice in the app) or the channel isn't the user's.",
+    ),
   library_asset_ids: z
     .array(z.string().max(100))
     .max(30)
@@ -158,7 +160,11 @@ export const PublishOutput = z.object({
 
 export const TrendsInput = z.object({
   niche: z.string().max(80).optional().describe("Filter by niche name or id, e.g. 'history' or 'tech'."),
-  channel_id: z.string().max(80).optional().describe("Only this channel's brief (from list_channels)."),
+  channel_id: z
+    .string()
+    .max(80)
+    .optional()
+    .describe("Only this channel's brief (a channel_id from get_account)."),
 });
 export const TrendIdea = z.object({
   topic: z.string().describe("Pass as create_short.topic."),
@@ -203,6 +209,9 @@ export const ChannelView = z.object({
   publishable: z.boolean().describe("false while the user is over their plan's channel limit"),
   niche: z.string().optional().describe("The niche its daily brief covers"),
   stats: z.boolean().describe("Whether ShortLoop can read this channel's YouTube stats"),
+  voice: z
+    .boolean()
+    .describe("Whether this channel's voice is on, so create_short can write in it via channel_voice_id"),
 });
 
 export const AccountOutput = z.object({

@@ -30,6 +30,10 @@ the app; tokens are bound to the `/api/mcp` resource.
 | Publish and learn | `approve_short`, `publish_short`, `get_performance` (views, avg % viewed)                                                                                                      |
 | Help              | `get_guide` (step-by-step), prompt `make_a_short`                                                                                                                              |
 
+**Channel voice.** `get_account` marks each channel with `voice: true` when its learned voice is switched on (Settings →
+Channel voice in the app). Pass that `channel_id` as `create_short.channel_voice_id` and the AI-written script follows the
+channel's voice; a channel whose voice is off, or that isn't the user's, is ignored.
+
 Read-only tools carry `readOnlyHint` and the others an explicit `destructiveHint`, so clients can tell reads from writes.
 
 **In-chat preview (MCP Apps).** `create_short`, `wait_for_job` and `get_short` point at the UI resource

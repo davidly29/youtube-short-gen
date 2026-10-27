@@ -2,7 +2,7 @@
 
 export const API_VERSION = "1.0.0";
 /** SHA-256 of the OpenAPI document this SDK was generated from. */
-export const SPEC_SHA256 = "883c753bd8c230af11a59cedcc379a5dd9038f6abee0e928d620f8bef106deb9";
+export const SPEC_SHA256 = "baa4d0679b21cdae33a17d36d2dcb700258fc8e3cefb5ca024cd03d53a4c515a";
 
 export type ApiError = {
   error: {
@@ -90,7 +90,7 @@ export type CreateShortInputBody = {
   };
   /** The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs). */
   topic_id?: string;
-  /** A channel id from list_channels whose learned voice the script should follow. */
+  /** A channel_id from get_account whose channel voice is on (`voice: true`): the AI-written script follows that channel's learned voice. Ignored when the voice is off (Settings → Channel voice in the app) or the channel isn't the user's. */
   channel_voice_id?: string;
   /** The user's own uploads (from list_library) to use on the beats they match, before stock or AI. */
   library_asset_ids?: string[];
@@ -312,6 +312,8 @@ export type AccountOutput = {
     niche?: string;
     /** Whether ShortLoop can read this channel's YouTube stats */
     stats: boolean;
+    /** Whether this channel's voice is on, so create_short can write in it via channel_voice_id */
+    voice: boolean;
   }[];
   /** Link to this in the ShortLoop app. */
   app_url: string;
@@ -598,7 +600,7 @@ export abstract class GeneratedClient {
   getTrends(
     query: {
       /** Filter by niche name or id, e.g. 'history' or 'tech'. */
-      niche?: string; /** Only this channel's brief (from list_channels). */
+      niche?: string; /** Only this channel's brief (a channel_id from get_account). */
       channel_id?: string;
     } = {},
   ): Promise<TrendsOutput> {

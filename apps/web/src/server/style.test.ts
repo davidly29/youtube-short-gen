@@ -1,4 +1,5 @@
 import { eq, openDb, schema, seed, SEED, type DbHandle } from "@shortloop/db";
+import { CreateShortInput } from "@shortloop/mcp";
 import { FakeYouTube, SecretBox } from "@shortloop/providers";
 import { connectYouTubeChannel } from "@shortloop/worker";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,6 +35,15 @@ beforeEach(async () => {
     jobs,
     fake: true,
     providersFor: async () => ({ llm: {} }),
+    tts: { voices: () => [{ id: "en-US-AriaNeural", name: "Aria" }] },
+    stock: [],
+    image: { provider: "free" },
+    resolve: async () => ({
+      llm: {},
+      route: { image: "free", tts: "free" },
+      notices: [],
+      usage: { premiumImages: 0 },
+    }),
   } as unknown as Runtime);
 });
 afterEach(async () => {
@@ -104,5 +114,46 @@ describe("scripts use the chosen channel voice", () => {
     expect(enqueued.at(-1)?.input.styleProfile).toBeUndefined();
     const stored = await h.db.query.projects.findFirst({ where: eq(schema.projects.id, p1) });
     expect(stored?.settings.styleChannelId).toBe(ch);
+  });
+});
+
+describe("MCP create_short uses the channel voice (E4-03b)", () => {
+  const short = CreateShortInput.parse({ topic: "why the legion marched" });
+
+  it("get_account says which channels have their voice on", async () => {
+    const { buildChannelVoice, setChannelVoiceEnabled } = await import("./style");
+    const { mcpServicesFor } = await import("./mcp-services");
+    const voiceOf = async () => (await mcpServicesFor(SEED.userId).getAccount()).channels[0]?.voice;
+    expect(await voiceOf()).toBe(false);
+    await buildChannelVoice(SEED.userId, ch);
+    expect(await voiceOf()).toBe(true);
+    await setChannelVoiceEnabled(SEED.userId, ch, false);
+    expect(await voiceOf()).toBe(false);
+  });
+
+  it("enqueues the script job with the enabled profile; none without it, when off, or for someone else's channel", async () => {
+    const { buildChannelVoice, setChannelVoiceEnabled } = await import("./style");
+    const { mcpServicesFor } = await import("./mcp-services");
+    const built = await buildChannelVoice(SEED.userId, ch);
+    const lastScript = () => enqueued.filter((j) => j.type === "script").at(-1)?.input;
+
+    await mcpServicesFor(SEED.userId).createShort({ ...short, channel_voice_id: ch });
+    expect(lastScript()?.styleProfile).toEqual(built.profile);
+
+    await mcpServicesFor(SEED.userId).createShort(short);
+    expect(lastScript()?.styleProfile).toBeUndefined();
+
+    await mcpServicesFor(SEED.userId).createShort({ ...short, channel_voice_id: "ch_does_not_exist" });
+    expect(lastScript()?.styleProfile).toBeUndefined();
+
+    await h.db
+      .insert(schema.creditLedger)
+      .values({ ownerId: OTHER, delta: 5, reason: "signup", unit: "short" });
+    await mcpServicesFor(OTHER).createShort({ ...short, channel_voice_id: ch });
+    expect(lastScript()?.styleProfile).toBeUndefined();
+
+    await setChannelVoiceEnabled(SEED.userId, ch, false);
+    await mcpServicesFor(SEED.userId).createShort({ ...short, channel_voice_id: ch });
+    expect(lastScript()?.styleProfile).toBeUndefined();
   });
 });

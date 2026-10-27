@@ -25,6 +25,7 @@ import {
   updateCaptions,
 } from "./projects";
 import { publishShort } from "./publishing";
+import { voiceOptions } from "./style";
 import { runtime } from "./runtime";
 
 const STAGES = ["script", "voice", "visuals", "render"];
@@ -328,13 +329,15 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
 
     async getAccount() {
       const rt = await runtime();
-      const [access, allowance, channels, caps, user] = await Promise.all([
+      const [access, allowance, channels, caps, user, voices] = await Promise.all([
         accessOf(userId),
         channelAllowance(userId),
         listChannels(userId),
         capabilities(userId),
         rt.db.query.users.findFirst({ where: eq(schema.users.id, userId) }),
+        voiceOptions(userId),
       ]);
+      const voiceOn = new Set(voices.map((v) => v.id));
       const rows = channels.length
         ? await rt.db
             .select({
@@ -382,6 +385,7 @@ export function mcpServicesFor(userId: string): ShortLoopServices {
             publishable: c.publishable,
             niche: niche?.name,
             stats: c.platform === "youtube" && hasAnalyticsScope(e?.scopes),
+            voice: voiceOn.has(c.id),
           };
         }),
         app_url: appUrl("/projects"),

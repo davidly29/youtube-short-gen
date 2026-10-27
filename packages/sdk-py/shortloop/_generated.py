@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 from urllib.parse import quote
 
 API_VERSION = "1.0.0"
-SPEC_SHA256 = "883c753bd8c230af11a59cedcc379a5dd9038f6abee0e928d620f8bef106deb9"
+SPEC_SHA256 = "baa4d0679b21cdae33a17d36d2dcb700258fc8e3cefb5ca024cd03d53a4c515a"
 
 
 def _q(value: str) -> str:
@@ -120,7 +120,7 @@ class CreateShortInputBody(_CreateShortInputBodyRequired, total=False):
     topic_id: str
     """The topic_id of a get_trends idea this Short is made from (keeps it out of later briefs)."""
     channel_voice_id: str
-    """A channel id from list_channels whose learned voice the script should follow."""
+    """A channel_id from get_account whose channel voice is on (`voice: true`): the AI-written script follows that channel's learned voice. Ignored when the voice is off (Settings → Channel voice in the app) or the channel isn't the user's."""
     library_asset_ids: List[str]
     """The user's own uploads (from list_library) to use on the beats they match, before stock or AI."""
     wait_seconds: int
@@ -451,6 +451,8 @@ class _AccountOutputChannelsItemRequired(TypedDict):
     """false while the user is over their plan's channel limit"""
     stats: bool
     """Whether ShortLoop can read this channel's YouTube stats"""
+    voice: bool
+    """Whether this channel's voice is on, so create_short can write in it via channel_voice_id"""
 
 
 class AccountOutputChannelsItem(_AccountOutputChannelsItemRequired, total=False):
