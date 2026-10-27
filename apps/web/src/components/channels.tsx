@@ -115,7 +115,13 @@ export function ChannelList({ initial }: { initial: ChannelView[] }) {
                   <AlertTriangle className="size-4" aria-hidden /> Access expired.{" "}
                   <a
                     className="font-semibold underline"
-                    href={c.platform === "tiktok" ? "/publish/tiktok/connect" : "/api/channels/youtube/start"}
+                    href={
+                      c.platform === "tiktok"
+                        ? "/publish/tiktok/connect"
+                        : c.platform === "instagram"
+                          ? "/publish/instagram/connect"
+                          : "/api/channels/youtube/start"
+                    }
                   >
                     Reconnect
                   </a>

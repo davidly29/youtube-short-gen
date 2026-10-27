@@ -1022,13 +1022,21 @@ function PublishPanel({ view, onChanged }: { view: View; onChanged: () => Promis
         </div>
       )}
       <p className="mt-4 border-t border-line pt-3 text-sm text-ink-soft">
-        Also on TikTok?{" "}
+        Also on TikTok or Instagram?{" "}
         <a
           href={`/publish/tiktok?project=${view.project.id}`}
           className="font-semibold text-brand"
           data-testid="post-to-tiktok"
         >
           Post this Short to TikTok
+        </a>
+        {" · "}
+        <a
+          href={`/publish/instagram?project=${view.project.id}`}
+          className="font-semibold text-brand"
+          data-testid="post-to-instagram"
+        >
+          Post it to Instagram as a Reel
         </a>
       </p>
     </Card>

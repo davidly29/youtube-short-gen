@@ -16,6 +16,7 @@ import {
   storageFromEnv,
   trendCollectorsFromEnv,
   HttpYouTubeAnalytics,
+  instagramFromEnv,
   youtubeFromEnv,
 } from "@shortloop/providers";
 import { startAnalyticsSchedule } from "./analytics";
@@ -47,6 +48,9 @@ const jobs = createWorker({
   resolveProviders: createResolver({ db: handle.db, box, platform, managed: managedProvidersFromEnv() }),
   box,
   youtube,
+  // Instagram Reels (E8-04b): INSTAGRAM_APP_ID/SECRET + BETTER_AUTH_URL (or APP_URL), as on the web service.
+  instagram: instagramFromEnv(),
+  publicBaseUrl: process.env.BETTER_AUTH_URL ?? process.env.APP_URL,
   // Read-only stats for each connected channel's own Shorts (E10-01); same OAuth client as publishing.
   youtubeAnalytics: youtube ? new HttpYouTubeAnalytics() : undefined,
   dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
@@ -58,7 +62,7 @@ const jobs = createWorker({
   // Trend radar (E3-01): free official APIs, platform-level, no user keys or credits.
   trendCollectors: trendCollectorsFromEnv(),
 });
-// Posts held for YouTube's daily quota go out when the next window opens.
+// Posts held for YouTube's daily quota or Instagram's limits go out when their window opens.
 const sweep = setInterval(
   () => void requeueHeldPublishes(handle.db, jobs).catch((e) => console.error(e)),
   10 * 60_000,

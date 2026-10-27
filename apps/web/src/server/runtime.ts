@@ -21,12 +21,15 @@ import {
   FakeWebhookSender,
   type BillingProvider,
   FakeFingerprint,
+  FakeInstagram,
   FakeYouTube,
+  instagramFromEnv,
   FakeYouTubeAnalytics,
   HttpYouTubeAnalytics,
   fingerprintFromEnv,
   fingerprintRequired,
   youtubeFromEnv,
+  type InstagramClient,
   type YouTubeAnalyticsClient,
   type YouTubeClient,
   managedProvidersFromEnv,
@@ -82,6 +85,8 @@ export interface Runtime {
   youtube?: YouTubeClient;
   /** Read-only YouTube Analytics for connected channels (E10-01); a fake in fake mode. */
   youtubeAnalytics?: YouTubeAnalyticsClient;
+  /** Instagram Login + Reels (E8-04b: INSTAGRAM_APP_ID/SECRET; a fake in fake mode). */
+  instagram?: InstagramClient;
   /** Fake adapters and offline key checks (e2e and local demos). */
   fake: boolean;
   /** The providers a user's own keys unlock, layered over the platform defaults. */
@@ -170,6 +175,7 @@ async function build(): Promise<Runtime> {
     : youtube
       ? new HttpYouTubeAnalytics()
       : undefined;
+  const instagram = fake() ? new FakeInstagram() : instagramFromEnv();
   // Each job and request follows its user's routing (ADR 0007): own keys, ShortLoop AI on paid plans (metered and
   // capped), and the free providers as the fallback for images and voices.
   const resolve = createResolver({
@@ -204,6 +210,10 @@ async function build(): Promise<Runtime> {
       box,
       youtube,
       youtubeAnalytics,
+      instagram,
+      // Fake Instagram finishes "processing" at once; don't wait a real minute between status checks.
+      instagramReel: fake() ? { pollIntervalMs: 250 } : undefined,
+      publicBaseUrl: process.env.BETTER_AUTH_URL ?? process.env.APP_URL,
       dailyUploadLimit: process.env.YOUTUBE_DAILY_UPLOAD_LIMIT
         ? Number(process.env.YOUTUBE_DAILY_UPLOAD_LIMIT)
         : undefined,
@@ -212,7 +222,7 @@ async function build(): Promise<Runtime> {
       fingerprint: fake() ? new FakeFingerprint() : fingerprintFromEnv(),
       requireMusicCheck: fingerprintRequired(),
     });
-    // All-in-one mode: this process also releases posts held for YouTube's daily quota.
+    // All-in-one mode: this process also releases posts held for YouTube's quota or Instagram's limits.
     const j = jobs;
     setInterval(
       () => void requeueHeldPublishes(handle.db, j).catch((e) => console.error(e)),
@@ -244,6 +254,7 @@ async function build(): Promise<Runtime> {
     prices,
     youtube,
     youtubeAnalytics,
+    instagram,
     fake: fake(),
     providersFor,
     resolve,
