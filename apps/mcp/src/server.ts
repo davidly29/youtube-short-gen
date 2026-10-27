@@ -71,9 +71,10 @@ export const GUIDE = `# Making Shorts with ShortLoop
    If there are no channels, the user connects YouTube under Channels in the app before publishing.
 2. **Pick an idea**: \`get_trends\` (today's brief per channel) or the user's own topic. For a proven shape,
    \`get_recommendations\` for the channel and \`list_workflows\` / \`get_workflow\`.
-3. **Make it**: \`create_short\` with the topic (and \`topic_id\`, \`angle\` from a trend idea). Pass
-   \`wait_seconds: 50\` to wait in the same call, then keep calling \`wait_for_job\` until \`done\`. A 45 s Short
-   usually takes 1–3 minutes.
+3. **Make it**: \`create_short\` with the topic (and \`topic_id\`, \`angle\` from a trend idea). To sound like
+   the user's channel, add \`channel_voice_id\` (a \`channel_id\` from \`get_account\`); it's used when that channel's
+   voice is switched on in ShortLoop (Settings → Channel voice). Pass \`wait_seconds: 50\` to wait in the same call,
+   then keep calling \`wait_for_job\` until \`done\`. A 45 s Short usually takes 1–3 minutes.
 4. **Review together**: give the user \`video_url\` (or \`app_url\`). Fix a shot with \`swap_visual\`, a caption
    word with \`update_captions\` (indexes from \`get_short\`). Re-renders are free.
 5. **Approve and publish**: only after the user says yes, \`approve_short\`, then \`publish_short\` (now or
@@ -155,7 +156,7 @@ export function buildShortLoopServer(services: ShortLoopServices, opts: BuildOpt
     {
       title: "Create a Short",
       description:
-        "Make an original Short from a topic in one call: script (written by the user's AI key, or the `script` you pass), voiceover, visuals, captions and render. Uses 1 credit. Returns a job_id for wait_for_job; pass wait_seconds to wait here first.",
+        "Make an original Short from a topic in one call: script (written by the user's AI key, or the `script` you pass), voiceover, visuals, captions and render. Pass channel_voice_id (a channel_id from get_account) to write the script in that channel's learned voice; it's used only when the voice is switched on in ShortLoop under Settings → Channel voice. Uses 1 credit. Returns a job_id for wait_for_job; pass wait_seconds to wait here first.",
       inputSchema: CreateShortInput,
       outputSchema: CreateShortOutput,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },

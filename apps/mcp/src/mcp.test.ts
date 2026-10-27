@@ -175,6 +175,37 @@ describe("ShortLoop MCP server (E9-01)", () => {
     expect(tools.find((t) => t.name === "get_job")?.annotations?.readOnlyHint).toBe(true);
   });
 
+  it("create_short takes an optional channel_voice_id and passes it to the services (E4-03b)", async () => {
+    const seen: (string | undefined)[] = [];
+    const services = stubServices();
+    const create = services.createShort;
+    services.createShort = async (input) => {
+      seen.push(input.channel_voice_id);
+      return create(input);
+    };
+    const client = await connectInProcess(
+      createShortLoopMcpHandler(() => services),
+      auth,
+    );
+    const { tools } = await client.listTools();
+    const tool = tools.find((t) => t.name === "create_short");
+    const prop = (tool?.inputSchema.properties as Record<string, { type?: string; description?: string }>)
+      .channel_voice_id;
+    expect(prop?.type).toBe("string");
+    expect(prop?.description).toMatch(/get_account.*Settings → Channel voice/);
+    expect(tool?.inputSchema.required).not.toContain("channel_voice_id");
+    expect(tool?.description).toMatch(/channel_voice_id.*Settings → Channel voice/);
+
+    data(
+      await client.callTool({
+        name: "create_short",
+        arguments: { topic: "roman roads", channel_voice_id: "ch_1" },
+      }),
+    );
+    data(await client.callTool({ name: "create_short", arguments: { topic: "salt empire" } }));
+    expect(seen).toEqual(["ch_1", undefined]);
+  });
+
   it("scripted agent: create -> wait -> approve -> publish", async () => {
     const services = stubServices();
     const client = await connectInProcess(
@@ -367,6 +398,8 @@ describe("MCP v2: account, browsing, waiting, editing, guidance", () => {
       "video_url",
       "app_url",
       "scheduled_at",
+      "channel_voice_id",
+      "channel_id",
     ]);
     for (const name of mentioned) expect(tools.has(name) || params.has(name), name).toBe(true);
   });
