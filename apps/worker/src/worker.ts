@@ -15,6 +15,8 @@ import {
 import type {
   Fingerprinter,
   ImageGen,
+  InstagramClient,
+  PublishReelOptions,
   LLM,
   SecretBox,
   StockProvider,
@@ -29,7 +31,8 @@ import { analyticsHandler } from "./analytics";
 import { briefHandler, isBriefInput } from "./brief";
 import { addNotices, productionFailureListener, withProduction } from "./chain";
 import type { ResolveContext, ResolvedProviders } from "./providers";
-import { publishHandler } from "./publish";
+import { publishHandler, type PublishInput } from "./publish";
+import { instagramPublishHandler } from "./publish-instagram";
 import { renderHandler } from "./render";
 import { scriptHandler } from "./script";
 import { trendsHandler } from "./trends";
@@ -66,6 +69,12 @@ export interface WorkerDeps {
   box?: SecretBox;
   /** YouTube client (GOOGLE_CLIENT_ID/SECRET); without it the publish stage reports it isn't set up. */
   youtube?: YouTubeClient;
+  /** Instagram Login + Reels (E8-04b: INSTAGRAM_APP_ID/SECRET); without it Instagram posts report it isn't set up. */
+  instagram?: InstagramClient;
+  /** Reel status polling (default once a minute, 5 times); tests shorten it. */
+  instagramReel?: PublishReelOptions;
+  /** Public base URL for app-relative signed media links (local storage), which Instagram must fetch. */
+  publicBaseUrl?: string;
   /** YouTube Analytics (E10-01); without it the daily ingest only keeps feature rows (E10-02). */
   youtubeAnalytics?: YouTubeAnalyticsClient;
   /** YouTube uploads per Pacific day before holding posts for the next window (default 100). */
@@ -184,21 +193,45 @@ export function createWorker(deps: WorkerDeps): JobService {
       return premiumJobId ? { ...out, premiumJobId } : out;
     },
     render: renderHandler(deps.storage, deps.db),
-    publish:
-      deps.youtube && deps.box
-        ? publishHandler({
-            db: deps.db,
-            storage: deps.storage,
-            box: deps.box,
-            youtube: deps.youtube,
-            dailyLimit: deps.dailyUploadLimit,
-            fingerprint: deps.fingerprint,
-            requireMusicCheck: deps.requireMusicCheck,
-          })
-        : unavailable(
-            "publish",
-            "not set up (the server needs a Google OAuth client: GOOGLE_CLIENT_ID/SECRET)",
-          ),
+    // One `publish` queue for every platform; the request's platform picks the handler.
+    publish: (() => {
+      const youtube =
+        deps.youtube && deps.box
+          ? publishHandler({
+              db: deps.db,
+              storage: deps.storage,
+              box: deps.box,
+              youtube: deps.youtube,
+              dailyLimit: deps.dailyUploadLimit,
+              fingerprint: deps.fingerprint,
+              requireMusicCheck: deps.requireMusicCheck,
+            })
+          : unavailable(
+              "publish",
+              "not set up (the server needs a Google OAuth client: GOOGLE_CLIENT_ID/SECRET)",
+            );
+      const instagram =
+        deps.instagram && deps.box
+          ? instagramPublishHandler({
+              db: deps.db,
+              storage: deps.storage,
+              box: deps.box,
+              instagram: deps.instagram,
+              publicBaseUrl: deps.publicBaseUrl,
+              reel: deps.instagramReel,
+              fingerprint: deps.fingerprint,
+              requireMusicCheck: deps.requireMusicCheck,
+              now: deps.now,
+            })
+          : unavailable(
+              "publish",
+              "not set up for Instagram (the server needs a Meta app: INSTAGRAM_APP_ID/SECRET)",
+            );
+      return (ctx) =>
+        (ctx.job.input as Partial<PublishInput>).request?.platform === "instagram"
+          ? instagram(ctx)
+          : youtube(ctx);
+    })(),
     trends: (() => {
       const collect = deps.trendCollectors
         ? trendsHandler(deps.db, deps.trendCollectors)

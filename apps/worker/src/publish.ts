@@ -78,6 +78,95 @@ async function uploadsToday(db: Db, now: Date): Promise<number> {
   return rows.length;
 }
 
+/** What the publish checks found so far; kept even when one fails, for the audit log (E13-02). */
+export interface PublishTrace {
+  checks: PublishChecks;
+  assetsUsed: RightsEntry[];
+  musicMatches: unknown[];
+}
+
+export const newPublishTrace = (): PublishTrace => ({
+  checks: { rights: "pending", variation: "pending", music: "pending" },
+  assetsUsed: [],
+  musicMatches: [],
+});
+
+/**
+ * The checks every platform runs before posting (YouTube E8-02, Instagram E8-04b): approved, the latest render,
+ * every asset licensed (`assertPublishable`), no commercial music in user audio (E13-03), and not a near-duplicate
+ * (`checkVariation`) unless the user overrode it. Refusals throw `PublishRefused`; `trace` records what was found.
+ */
+export async function runPublishChecks(
+  deps: Pick<PublishDeps, "db" | "storage" | "fingerprint" | "requireMusicCheck">,
+  ownerId: string,
+  projectId: string,
+  videoAssetId: string,
+  trace: PublishTrace,
+) {
+  const { db } = deps;
+  const { checks } = trace;
+  const project = await db.query.projects.findFirst({ where: eq(schema.projects.id, projectId) });
+  if (!project || project.ownerId !== ownerId) throw new PublishRefused("project not found");
+  if (project.status !== "approved") throw new PublishRefused("Approve the Short before publishing.");
+  if (project.renderAssetId !== videoAssetId)
+    throw new PublishRefused("That video isn't this project's latest render.");
+  const tlRow = project.timelineId
+    ? await db.query.timelines.findFirst({ where: eq(schema.timelines.id, project.timelineId) })
+    : undefined;
+  if (!tlRow) throw new PublishRefused("No timeline to check.");
+  const timeline = Timeline.parse(toTimeline(tlRow));
+  const ids = [...new Set([...timeline.video, ...timeline.audio].map((c) => c.assetId))];
+  const assets = (await db.select().from(schema.assets).where(inArray(schema.assets.id, ids))).map((a) =>
+    Asset.parse(toAsset(a)),
+  );
+  const manifest = buildRightsManifest(timeline, assets);
+  trace.assetsUsed = manifest.entries;
+  try {
+    assertPublishable(manifest);
+  } catch (e) {
+    checks.rights = "failed";
+    throw e;
+  }
+  checks.rights = "passed";
+  // Commercial music in user-supplied audio blocks the publish (E13-03). Video clips render muted.
+  const audioIds = new Set(timeline.audio.map((c) => c.assetId));
+  const toCheck = assets.filter((a) => audioIds.has(a.id) && needsFingerprint(a));
+  if (toCheck.length === 0) checks.music = "passed";
+  else if (!deps.fingerprint) {
+    checks.music = "skipped";
+    if (deps.requireMusicCheck) throw new PublishRefused(MUSIC_CHECK_UNAVAILABLE);
+  } else {
+    const fp = deps.fingerprint;
+    const results: { asset: Asset; result: FingerprintResult }[] = [];
+    const tmp = await mkdtemp(join(tmpdir(), "music-"));
+    try {
+      for (const [i, a] of toCheck.entries()) {
+        const file = join(tmp, `audio-${i}`);
+        await deps.storage.getFile(a.storageKey, file);
+        results.push({ asset: a, result: await fp.fingerprint(a, file) });
+      }
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
+    }
+    const music = musicCheck(results);
+    trace.musicMatches = music.matches;
+    checks.music = music.ok ? "passed" : "failed";
+    if (!music.ok) throw new PublishRefused(music.problems.join(" "));
+  }
+  const script = project.scriptId
+    ? await db.query.scripts.findFirst({ where: eq(schema.scripts.id, project.scriptId) })
+    : undefined;
+  if (script) {
+    const v = await checkVariation(db, ownerId, script);
+    const overridden = (await listOverrides(db, ownerId)).some((o) => o.subjectId === script.id);
+    checks.variation = v.ok ? "passed" : overridden ? "overridden" : "failed";
+    if (!v.ok && !overridden) throw new PublishRefused(v.reasons.join(" "));
+  } else {
+    checks.variation = "passed"; // nothing to compare
+  }
+  return { project, timeline, assets, manifest };
+}
+
 /**
  * Job `publish`: checks first (approved, rights, variation), then a resumable upload. Quota exhaustion holds the
  * post for the next quota window instead of failing; a retry resumes the saved session, never re-uploads.
@@ -102,70 +191,16 @@ export function publishHandler(deps: PublishDeps): JobHandler {
         .where(eq(schema.publishRecords.id, rec.id));
 
     // What the checks found, recorded with the outcome so a publish can be explained later (E13-02).
-    const checks: PublishChecks = { rights: "pending", variation: "pending", music: "pending" };
-    let assetsUsed: RightsEntry[] = [];
-    let musicMatches: unknown[] = [];
+    const trace = newPublishTrace();
+    const { checks } = trace;
     try {
-      // 1. Checks: approved, every asset licensed, not a near-duplicate (unless the user overrode it, logged).
-      const project = await db.query.projects.findFirst({ where: eq(schema.projects.id, input.projectId) });
-      if (!project || project.ownerId !== ownerId) throw new PublishRefused("project not found");
-      if (project.status !== "approved") throw new PublishRefused("Approve the Short before publishing.");
-      if (project.renderAssetId !== req.videoAssetId)
-        throw new PublishRefused("That video isn't this project's latest render.");
-      const tlRow = project.timelineId
-        ? await db.query.timelines.findFirst({ where: eq(schema.timelines.id, project.timelineId) })
-        : undefined;
-      if (!tlRow) throw new PublishRefused("No timeline to check.");
-      const timeline = Timeline.parse(toTimeline(tlRow));
-      const ids = [...new Set([...timeline.video, ...timeline.audio].map((c) => c.assetId))];
-      const assets = (await db.select().from(schema.assets).where(inArray(schema.assets.id, ids))).map((a) =>
-        Asset.parse(toAsset(a)),
+      const { project, timeline, assets, manifest } = await runPublishChecks(
+        deps,
+        ownerId,
+        input.projectId,
+        req.videoAssetId,
+        trace,
       );
-      const manifest = buildRightsManifest(timeline, assets);
-      assetsUsed = manifest.entries;
-      try {
-        assertPublishable(manifest);
-      } catch (e) {
-        checks.rights = "failed";
-        throw e;
-      }
-      checks.rights = "passed";
-      // Commercial music in user-supplied audio blocks the publish (E13-03). Video clips render muted.
-      const audioIds = new Set(timeline.audio.map((c) => c.assetId));
-      const toCheck = assets.filter((a) => audioIds.has(a.id) && needsFingerprint(a));
-      if (toCheck.length === 0) checks.music = "passed";
-      else if (!deps.fingerprint) {
-        checks.music = "skipped";
-        if (deps.requireMusicCheck) throw new PublishRefused(MUSIC_CHECK_UNAVAILABLE);
-      } else {
-        const fp = deps.fingerprint;
-        const results: { asset: Asset; result: FingerprintResult }[] = [];
-        const tmp = await mkdtemp(join(tmpdir(), "music-"));
-        try {
-          for (const [i, a] of toCheck.entries()) {
-            const file = join(tmp, `audio-${i}`);
-            await deps.storage.getFile(a.storageKey, file);
-            results.push({ asset: a, result: await fp.fingerprint(a, file) });
-          }
-        } finally {
-          await rm(tmp, { recursive: true, force: true });
-        }
-        const music = musicCheck(results);
-        musicMatches = music.matches;
-        checks.music = music.ok ? "passed" : "failed";
-        if (!music.ok) throw new PublishRefused(music.problems.join(" "));
-      }
-      const script = project.scriptId
-        ? await db.query.scripts.findFirst({ where: eq(schema.scripts.id, project.scriptId) })
-        : undefined;
-      if (script) {
-        const v = await checkVariation(db, ownerId, script);
-        const overridden = (await listOverrides(db, ownerId)).some((o) => o.subjectId === script.id);
-        checks.variation = v.ok ? "passed" : overridden ? "overridden" : "failed";
-        if (!v.ok && !overridden) throw new PublishRefused(v.reasons.join(" "));
-      } else {
-        checks.variation = "passed"; // nothing to compare
-      }
       await onProgress(0.1);
 
       // 2. Quota: hold for the next window rather than fail.
@@ -225,7 +260,7 @@ export function publishHandler(deps: PublishDeps): JobHandler {
           containsSyntheticMedia: metadata.containsSyntheticMedia,
           checks,
           assets: manifest.entries,
-          musicMatches,
+          musicMatches: trace.musicMatches,
         },
       });
       await onProgress(1);
@@ -249,8 +284,8 @@ export function publishHandler(deps: PublishDeps): JobHandler {
           channelId: rec.channelId,
           error: message,
           checks,
-          assets: assetsUsed,
-          musicMatches,
+          assets: trace.assetsUsed,
+          musicMatches: trace.musicMatches,
         },
       });
       throw e instanceof ReconnectRequired || e instanceof PublishRefused ? new PublishRefused(message) : e;
@@ -264,7 +299,7 @@ export function publishHandler(deps: PublishDeps): JobHandler {
   };
 }
 
-/** Re-queue posts held for quota once their window opens. Call periodically (the worker does every 10 minutes). */
+/** Re-queue posts held for quota (YouTube) or a rate limit (Instagram) once their window opens. Call periodically (the worker does every 10 minutes). */
 export async function requeueHeldPublishes(db: Db, jobs: JobService, now = new Date()): Promise<number> {
   const due = (
     await db
@@ -276,7 +311,8 @@ export async function requeueHeldPublishes(db: Db, jobs: JobService, now = new D
     const job = await jobs.enqueue(
       "publish",
       { publishId: r.id, projectId: r.projectId, request: r.request },
-      { idempotencyKey: `${r.idempotencyKey}:window:${quotaDay(now)}`, ownerId: r.ownerId },
+      // Keyed by the window, so a post held more than once a day (Instagram's hourly retry) gets a new job.
+      { idempotencyKey: `${r.idempotencyKey}:window:${r.retryAt ?? quotaDay(now)}`, ownerId: r.ownerId },
     );
     await db
       .update(schema.publishRecords)

@@ -33,7 +33,27 @@ export {
   connectYouTubeChannel,
   disconnectChannel,
 } from "./channels";
-export { publishHandler, PublishRefused, requeueHeldPublishes, type PublishInput } from "./publish";
+export {
+  newPublishTrace,
+  publishHandler,
+  PublishRefused,
+  requeueHeldPublishes,
+  runPublishChecks,
+  type PublishInput,
+  type PublishTrace,
+} from "./publish";
+export {
+  connectInstagramAccount,
+  instagramAccessToken,
+  instagramCaption,
+  instagramPublishHandler,
+  openInstagramToken,
+  sealInstagramToken,
+  INSTAGRAM_CAPTION_MAX,
+  INSTAGRAM_REFRESH_BEFORE_MS,
+  type InstagramPublishDeps,
+  type InstagramSecret,
+} from "./publish-instagram";
 export {
   DEFAULT_TRENDS_CONFIG,
   scheduleTrends,
